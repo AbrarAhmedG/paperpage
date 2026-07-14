@@ -10,6 +10,11 @@ create policy "Sketch objects insertable by owner"
   on storage.objects for insert
   with check (bucket_id = 'sketches' and (storage.foldername(name))[1] = auth.uid()::text);
 
+create policy "Sketch objects updatable by owner"
+  on storage.objects for update
+  using (bucket_id = 'sketches' and (storage.foldername(name))[1] = auth.uid()::text)
+  with check (bucket_id = 'sketches' and (storage.foldername(name))[1] = auth.uid()::text);
+
 create policy "Sketch objects deletable by owner"
   on storage.objects for delete
   using (bucket_id = 'sketches' and (storage.foldername(name))[1] = auth.uid()::text);

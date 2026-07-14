@@ -66,11 +66,14 @@ export async function POST(req: Request) {
   const { html, css } = renderPage(ir);
 
   // 5. Persist (RLS ensures the project belongs to this user).
-  const { error: saveErr } = await supabase
+  const { data: saved, error: saveErr } = await supabase
     .from('projects')
     .update({ sketch_path: sketchPath, ir, html, css, updated_at: new Date().toISOString() })
-    .eq('id', projectId);
+    .eq('id', projectId)
+    .select('id')
+    .maybeSingle();
   if (saveErr) return NextResponse.json({ error: saveErr.message }, { status: 500 });
+  if (!saved) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
 
   return NextResponse.json({ ir, html, css });
 }
