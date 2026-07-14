@@ -97,7 +97,9 @@ Rules:
 export async function callGeminiVision(image: { data: string; mimeType: string }): Promise<unknown> {
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
   const model = genAI.getGenerativeModel({
-    model: 'gemini-2.5-flash',
+    // gemini-2.5-flash is restricted for new API keys; default to the GA 2.0 flash.
+    // Override with GEMINI_MODEL in .env.local (e.g. a model your key/plan has quota for).
+    model: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
     generationConfig: {
       temperature: 0.2,
       responseMimeType: 'application/json',
