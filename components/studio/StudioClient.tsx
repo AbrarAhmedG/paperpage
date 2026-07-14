@@ -1,19 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import Uploader from './Uploader';
 
-type Project = {
-  id: string;
-  name: string;
-  html: string | null;
-  css: string | null;
-};
+const Editor = dynamic(() => import('./Editor'), { ssr: false });
+
+type Project = { id: string; name: string; html: string | null; css: string | null };
 
 export default function StudioClient({ project }: { project: Project }) {
   const [html, setHtml] = useState<string | null>(project.html);
   const [css, setCss] = useState<string | null>(project.css);
+  const editorRef = useRef<any>(null);
   const hasPage = !!html;
 
   return (
@@ -26,7 +25,14 @@ export default function StudioClient({ project }: { project: Project }) {
         <span />
       </div>
       {hasPage ? (
-        <div className="p-6">Editor loads here (Task 15).</div>
+        <Editor
+          html={html!}
+          css={css!}
+          editorRef={editorRef}
+          onChange={() => {
+            /* autosave wired in Task 16 */
+          }}
+        />
       ) : (
         <Uploader
           projectId={project.id}
