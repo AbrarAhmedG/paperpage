@@ -1,5 +1,4 @@
 import 'server-only';
-import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
 import sharp from 'sharp';
 import { SECTION_ROLES, ELEMENT_TYPES, CURATED_FONTS } from '@/utils/ir/schema';
 
@@ -15,103 +14,90 @@ export async function downscaleImage(
   return { data: out.toString('base64'), mimeType: 'image/jpeg' };
 }
 
-// JSON responseSchema mirrors utils/ir/schema.ts (Gemini's schema dialect).
-const responseSchema = {
-  type: SchemaType.OBJECT,
-  properties: {
-    theme: {
-      type: SchemaType.OBJECT,
-      properties: {
-        palette: {
-          type: SchemaType.OBJECT,
-          properties: {
-            primary: { type: SchemaType.STRING },
-            secondary: { type: SchemaType.STRING },
-            background: { type: SchemaType.STRING },
-            surface: { type: SchemaType.STRING },
-            text: { type: SchemaType.STRING },
-          },
-          required: ['primary', 'secondary', 'background', 'surface', 'text'],
-        },
-        fonts: {
-          type: SchemaType.OBJECT,
-          properties: {
-            heading: { type: SchemaType.STRING, enum: [...CURATED_FONTS] },
-            body: { type: SchemaType.STRING, enum: [...CURATED_FONTS] },
-          },
-          required: ['heading', 'body'],
-        },
-        spacing: { type: SchemaType.STRING, enum: ['compact', 'normal', 'roomy'] },
-      },
-      required: ['palette', 'fonts', 'spacing'],
-    },
-    sections: {
-      type: SchemaType.ARRAY,
-      items: {
-        type: SchemaType.OBJECT,
-        properties: {
-          id: { type: SchemaType.STRING },
-          role: { type: SchemaType.STRING, enum: [...SECTION_ROLES] },
-          layout: {
-            type: SchemaType.OBJECT,
-            properties: {
-              columns: { type: SchemaType.INTEGER },
-              align: { type: SchemaType.STRING, enum: ['start', 'center', 'end'] },
-            },
-            required: ['columns', 'align'],
-          },
-          elements: {
-            type: SchemaType.ARRAY,
-            items: {
-              type: SchemaType.OBJECT,
-              properties: {
-                type: { type: SchemaType.STRING, enum: [...ELEMENT_TYPES] },
-                text: { type: SchemaType.STRING },
-                level: { type: SchemaType.INTEGER },
-                variant: { type: SchemaType.STRING, enum: ['primary', 'secondary', 'ghost'] },
-                items: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
-                placeholder: { type: SchemaType.STRING },
-                alt: { type: SchemaType.STRING },
-              },
-              required: ['type'],
-            },
-          },
-        },
-        required: ['id', 'role', 'layout', 'elements'],
-      },
-    },
+// Self-contained prompt: the JSON shape is described here (no provider-native
+// schema needed), so any OpenAI-compatible vision model can produce it. The IR
+// is still validated with Zod (utils/ir/schema.ts) after generation.
+const PROMPT = `You are a web layout interpreter. You are given a photo of a hand-drawn website page sketch.
+Return ONLY a single JSON object (no markdown, no commentary) with EXACTLY this shape:
+
+{
+  "theme": {
+    "palette": { "primary": "#RRGGBB", "secondary": "#RRGGBB", "background": "#RRGGBB", "surface": "#RRGGBB", "text": "#RRGGBB" },
+    "fonts": { "heading": "<allowed font>", "body": "<allowed font>" },
+    "spacing": "compact" | "normal" | "roomy"
   },
-  required: ['theme', 'sections'],
-} as const;
+  "sections": [
+    {
+      "id": "<short unique string>",
+      "role": "<one of: ${SECTION_ROLES.join(', ')}>",
+      "layout": { "columns": <integer 1-4>, "align": "start" | "center" | "end" },
+      "elements": [
+        { "type": "<one of: ${ELEMENT_TYPES.join(', ')}>", "text": "<optional>", "level": "<optional 1-4>", "variant": "<optional: primary|secondary|ghost>", "items": ["<optional list>"], "placeholder": "<optional>", "alt": "<optional>" }
+      ]
+    }
+  ]
+}
 
-const PROMPT = `You are a web layout interpreter. Look at this photo of a hand-drawn website page sketch.
-Produce a structured page layout as JSON matching the provided schema.
+Allowed fonts (use these EXACT names only, for both heading and body): ${CURATED_FONTS.join(', ')}.
+
 Rules:
-- Infer each section's role (nav, hero, features, gallery, cta, text, footer) from the drawing.
-- Order sections top-to-bottom as drawn.
-- Fill in legible, sensible placeholder copy where handwriting is unclear. Keep copy short and realistic.
-- Choose 6-digit hex colors for a clean, modern palette (light background).
-- Pick a heading font and body font ONLY from the allowed font list.
-- Use "normal" spacing unless the sketch is clearly dense or airy.`;
+- Infer each section's role from the drawing; order sections top-to-bottom exactly as drawn.
+- Every section must have at least one element.
+- All palette colors MUST be 6-digit hex like "#14b8a6". Use a clean, modern palette with a light background.
+- The main title is a heading with "level": 1. Buttons use "type": "button" with short "text".
+- Fill in short, sensible placeholder copy where the handwriting is unclear.
+- Use "normal" spacing unless the sketch is clearly dense (compact) or airy (roomy).
+- Output the JSON object only.`;
 
+// Pull the first balanced JSON object out of the model's reply (handles code
+// fences or stray prose that some models add around the JSON).
+function extractJson(text: string): string {
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const raw = fenced ? fenced[1] : text;
+  const start = raw.indexOf('{');
+  const end = raw.lastIndexOf('}');
+  return start !== -1 && end > start ? raw.slice(start, end + 1) : raw.trim();
+}
+
+/**
+ * Calls an OpenAI-compatible vision chat endpoint and returns the raw parsed
+ * layout object (validated downstream by validateIR). Defaults to Groq (free);
+ * override with AI_BASE_URL / AI_API_KEY / AI_MODEL for OpenRouter, Ollama, etc.
+ */
 export async function callGeminiVision(image: { data: string; mimeType: string }): Promise<unknown> {
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-  const model = genAI.getGenerativeModel({
-    // gemini-2.5-flash is restricted for new API keys; default to the GA 2.0 flash.
-    // Override with GEMINI_MODEL in .env.local (e.g. a model your key/plan has quota for).
-    model: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
-    generationConfig: {
-      temperature: 0.2,
-      responseMimeType: 'application/json',
-      // @ts-expect-error responseSchema typing is looser than our const object
-      responseSchema,
+  const baseUrl = (process.env.AI_BASE_URL || 'https://api.groq.com/openai/v1').replace(/\/+$/, '');
+  const apiKey = process.env.AI_API_KEY || process.env.GROQ_API_KEY || '';
+  const model = process.env.AI_MODEL || 'meta-llama/llama-4-scout-17b-16e-instruct';
+
+  const res = await fetch(`${baseUrl}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
     },
+    body: JSON.stringify({
+      model,
+      temperature: 0.2,
+      messages: [
+        { role: 'system', content: PROMPT },
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'Interpret this hand-drawn website sketch and return the layout JSON.' },
+            { type: 'image_url', image_url: { url: `data:${image.mimeType};base64,${image.data}` } },
+          ],
+        },
+      ],
+    }),
   });
 
-  const result = await model.generateContent([
-    { text: PROMPT },
-    { inlineData: { data: image.data, mimeType: image.mimeType } },
-  ]);
-  const text = result.response.text();
-  return JSON.parse(text);
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(`AI request failed (${res.status}): ${errText.slice(0, 300)}`);
+  }
+
+  const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+  const content = json.choices?.[0]?.message?.content;
+  if (typeof content !== 'string') throw new Error('AI response contained no text content');
+  return JSON.parse(extractJson(content));
 }
