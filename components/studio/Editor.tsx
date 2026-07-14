@@ -4,11 +4,13 @@ import { useEffect, useRef } from 'react';
 import { CURATED_FONTS } from '@/utils/ir/schema';
 
 export default function Editor({
+  projectId,
   html,
   css,
   onChange,
   editorRef,
 }: {
+  projectId: string;
   html: string;
   css: string;
   onChange: () => void;
@@ -34,6 +36,10 @@ export default function Editor({
         storageManager: false, // app owns persistence
         components: html,
         style: css,
+        assetManager: {
+          upload: false, // we handle uploads via custom logic below
+          autoAdd: true,
+        },
         deviceManager: {
           devices: [
             { name: 'Desktop', width: '' },
@@ -85,6 +91,30 @@ export default function Editor({
           ],
         },
       });
+
+      // Load existing project assets into the manager.
+      try {
+        const res = await fetch(`/api/assets?projectId=${projectId}`);
+        if (res.ok) {
+          const { assets } = await res.json();
+          editor.AssetManager.add((assets ?? []).map((a: any) => ({ type: 'image', src: a.url, name: a.filename })));
+        }
+      } catch {}
+
+      // Route the asset manager's file input through /api/assets.
+      editor.AssetManager.getConfig().uploadFile = async (e: any) => {
+        const files: FileList = e.dataTransfer ? e.dataTransfer.files : e.target.files;
+        for (const file of Array.from(files)) {
+          const fd = new FormData();
+          fd.append('projectId', projectId);
+          fd.append('file', file);
+          const res = await fetch('/api/assets', { method: 'POST', body: fd });
+          if (res.ok) {
+            const a = await res.json();
+            editor.AssetManager.add({ type: 'image', src: a.url, name: a.filename });
+          }
+        }
+      };
 
       // Inject curated fonts into the canvas so picks render identically to export.
       const fontParam = CURATED_FONTS.map((f) => `family=${f.replace(/ /g, '+')}:wght@400;600;700`).join('&');

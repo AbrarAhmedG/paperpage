@@ -61,6 +61,7 @@ export default function StudioClient({ project }: { project: Project }) {
       </div>
       {hasPage ? (
         <Editor
+          projectId={project.id}
           html={html!}
           css={css!}
           editorRef={editorRef}
