@@ -4,6 +4,7 @@ import { useState, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import Uploader from './Uploader';
+import ExportButton from './ExportButton';
 import { debounce } from '@/utils/debounce';
 
 const Editor = dynamic(() => import('./Editor'), { ssr: false });
@@ -58,6 +59,7 @@ export default function StudioClient({ project }: { project: Project }) {
             {saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? 'Saved ✓' : ''}
           </span>
         </div>
+        {hasPage ? <ExportButton editorRef={editorRef} name={name} /> : <span />}
       </div>
       {hasPage ? (
         <Editor
