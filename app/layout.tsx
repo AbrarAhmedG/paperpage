@@ -1,8 +1,8 @@
 import './globals.css'
 
 export const metadata = {
-  title: 'PaperPage - Design to Code SaaS',
-  description: 'AI-Powered Figma-to-Code Platform',
+  title: 'PaperPage — Sketch to Site',
+  description: 'Turn a hand-drawn sketch into an editable, exportable web page.',
 }
 
 export default function RootLayout({
