@@ -1,14 +1,16 @@
 # PaperPage
 
-**AI-powered design-to-code SaaS platform.** Ingests Figma design links, parses node metadata, and leverages Google Gemini to generate pixel-perfect React + Tailwind code. Built for non-technical users through a visual interface, while AST-level code modifications execute securely server-side.
+**AI-powered "Sketch to Site" SaaS.** A user photographs a hand-drawn page sketch, uploads it, and PaperPage uses Google Gemini Vision to interpret it into a typed JSON layout, renders clean semantic HTML/CSS, and lets the user refine the page visually in a GrapesJS editor — then export a portable, self-hostable HTML/CSS `.zip`.
 
-Tagline: **"From Figma to Code. In one breath."**
+Tagline: **"From a napkin sketch to a live page."**
 
 ---
 
 ## Executive Summary
 
-PaperPage bridges visual design and frontend engineering. Users paste a Figma frame URL, chat with their UI in natural language, and export production-ready React components — with Shadcn/UI support, brand-voice tone swapping, and 1-click Vercel staging deploys.
+PaperPage turns a rough hand drawing into a real, editable web page. Flow: **upload a sketch photo → Gemini Vision → typed Layout IR → deterministic renderer → GrapesJS visual editor → HTML/CSS `.zip` export.** Accounts and saved projects are backed by Supabase (email/password auth, Postgres, Storage), all Row-Level-Security-scoped to the signed-in user.
+
+> This supersedes the original Figma-URL-ingestion premise. The design source of truth is `docs/superpowers/specs/2026-07-14-sketch-to-site-design.md`; the implementation plan is `docs/superpowers/plans/2026-07-14-sketch-to-site.md`.
 
 ---
 
@@ -16,69 +18,43 @@ PaperPage bridges visual design and frontend engineering. Users paste a Figma fr
 
 | Domain | Technology | Purpose |
 |---|---|---|
-| Frontend Framework | **Next.js 16.2** (App Router) | SSR, secure API routing, React app structure |
+| Framework | **Next.js 16.2** (App Router, Turbopack) | SSR, API routes, app structure |
 | Runtime | **React 19.2** | Component layer |
 | Language | **TypeScript 5.4** | `strict: false`, `strictNullChecks: true` |
-| Styling | **Tailwind CSS 3.4** + PostCSS + Autoprefixer | Utility-first, powers the Aurora Glassmorphism system |
-| Database & Auth | **Supabase** (PostgreSQL) | Relational state, auth, encrypted key storage (planned) |
-| AI Processing | **Google Gemini API** | Translates design layouts → structured frontend code |
-| Design Ingestion | **Figma REST API** | Node tree, bounding boxes, color styles; `/v1/me` for PAT validation |
-| Frontend Hosting | **Vercel** | Serverless edge for Next.js + API routes |
-| Database Hosting | **Supabase Cloud** | Managed PostgreSQL with real-time listeners |
-
-> The blueprint originally targeted Next.js 14; this repo runs on **Next.js 16.2**. All App Router patterns still apply.
-
----
-
-## Design System: "Aurora Glassmorphism"
-
-Ultra-modern, lightweight, premium aesthetic.
-
-- **Organic Aurora Backgrounds** — radial CSS mesh gradients combining soft mint (`#2dd4bf`) and gold (`#facc15`), exposed as `bg-aurora-gradient`.
-- **Frosted Glass Panels** — translucent surfaces (`bg-white/40`, `bg-surface`) + `backdrop-blur-xl` for depth.
-- **Subtle Borders** — thin semi-transparent white borders (`border-white/30`, `border-border`) for glass-edge feel.
-- **Shadows** — `shadow-glass`, `shadow-glass-hover` for elevated glass panels.
-
-### Tailwind Tokens (`tailwind.config.ts`)
-
-- `mint`: `50 #f0fdfa`, `400 #2dd4bf`, `500 #14b8a6` (primary accent)
-- `gold`: `50 #fefce8`, `400 #facc15`, `500 #eab308`
-- `surface`: `rgba(255,255,255,0.4)`
-- `border`: `rgba(255,255,255,0.3)`
-- `bg-aurora-gradient`: dual radial mint + gold mesh
-- `shadow-glass`, `shadow-glass-hover`
+| App styling | **Tailwind CSS 3.4** | The app's own UI (Aurora Glassmorphism). NOT used in generated pages. |
+| DB / Auth / Storage | **Supabase** (`@supabase/supabase-js`, `@supabase/ssr`) | Postgres, email/password auth, private Storage buckets, RLS |
+| AI vision | **Google Gemini** (`@google/generative-ai`) | Sketch → structured Layout IR via JSON `responseSchema` |
+| Visual editor | **GrapesJS** | WYSIWYG page builder (style/block/layer/asset/device managers) |
+| Validation | **Zod** | Validates the Layout IR before rendering |
+| Export | **JSZip** | Bundles HTML/CSS + images into a downloadable `.zip` |
+| Image processing | **sharp** | Server-side downscale of the uploaded sketch before Gemini |
+| Hosting | **Vercel** (app) + **Supabase Cloud** (DB/Storage) | Serverless edge + managed Postgres |
 
 ---
 
-## Feature Breakdown
+## Generation Pipeline (Approach B / B1)
 
-### 1. Public Marketing Funnel — `/`
-- Hero with bold value proposition over animated Aurora background.
-- Feature grid (Visual Spacing Engine, AI Tone Swapper, Shadcn/UI Native) in Glassmorphic cards.
-- CTA routes into `/studio`.
+The highest-value, highest-risk piece. **One-way render:** the IR generates the page once as a seed; after that, **GrapesJS owns the HTML/CSS** (no bidirectional sync).
 
-### 2. "Everyman" 1-Minute Integration Wizard — `IntegrationWizard.tsx`
-- Deep-links to `figma.com/settings/developers` for 1-click PAT retrieval.
-- Real-time validation via `/api/integrations/verify-figma` → Figma `/v1/me`.
-- Secure storage: verified keys encrypted in Supabase user row (planned) — never left in browser console.
+1. **Upload** — client sends a sketch photo to `POST /api/generate` (multipart).
+2. **Store** — `sharp` downscales it (≤1600px, JPEG); saved to Storage at `sketches/{user_id}/{projectId}/original.jpg`.
+3. **Interpret** — `lib/gemini.ts` calls Gemini Vision with a strict JSON `responseSchema` (mirrors the Zod schema, low temperature) → raw Layout IR.
+4. **Validate** — `utils/ir/schema.ts` `validateIR()` (Zod). Invalid → one automatic retry → `422`.
+5. **Render** — `utils/renderer.ts` `renderPage(ir)` → `{ html, css }`. Deterministic, **safe by construction** (all text HTML-escaped, no `<script>`, no untrusted URLs — no sanitizer needed).
+6. **Persist** — `{ sketch_path, ir, html, css }` saved to the `projects` row; returns `{ ir, html, css }`.
 
-### 3. Multi-Panel Studio Canvas — `/studio`
+### Layout IR (`utils/ir/schema.ts`)
+`Page { theme{ palette{primary,secondary,background,surface,text}, fonts{heading,body}, spacing }, sections[]{ id, role, layout{columns,align}, elements[]{type,text?,level?,variant?,...} } }`. Fonts come from a curated Google Fonts allowlist (unknown fonts coerce to `Inter`); palette colors are validated 6-digit hex; section roles/element types are enums shared with the Gemini `responseSchema`.
 
-Three-column grid `[300px_1fr_320px]`:
+---
 
-- **Left — Input Lounge:** `IntegrationWizard` + Figma Live URL input (drag-and-drop planned).
-- **Center — Live Viewport Emulator:** isolated `<iframe>` using `srcDoc` to render generated HTML/Tailwind safely (prevents style bleed + XSS).
-- **Right — Design Studio Accordion:** visual modifier panels — spacing sliders, color-wheel palette pickers — structural edits without CSS.
+## Design System: "Aurora Glassmorphism" (app UI only)
 
-### 4. AI-Driven Iteration ("Chat with your UI")
-- Chat bar beneath the Live Viewport.
-- Contextual API captures current code state + plain-text prompt (e.g., "Make this dark mode").
-- Gemini processes prompt + layout tree, rewrites targeted sections, returns updated code to the iframe.
+- **Aurora backgrounds** — radial mint (`#2dd4bf`) + gold (`#facc15`) mesh, exposed as `bg-aurora-gradient`.
+- **Frosted glass** — `bg-surface` / `bg-white/40` + `backdrop-blur-xl`; subtle `border-border` / `border-white/30`; `shadow-glass`.
+- Tokens in `tailwind.config.ts`: `mint` (50/400/500), `gold` (50/400/500), `surface`, `border`, `bg-aurora-gradient`, `shadow-glass`.
 
-### 5. Export Ecosystem
-- **Shadcn/UI Toggle** — mutates system prompt so AI emits `shadcn/ui` primitives instead of raw HTML.
-- **Tone & Copy Swapper** — extracts text nodes, translates into a brand voice (e.g., "Enterprise SaaS", "Web3"), maps back into the layout.
-- **1-Click Staging Deploy** — packages raw code string, pushes to a live Vercel deployment URL via the Vercel API (`handleStagingDeployment` in `utils/exportEcosystem.ts`).
+> Generated pages use **plain semantic HTML + CSS** (classed `pp-*` elements, CSS custom properties), never Tailwind — this is what GrapesJS's style manager edits cleanly and what exports portably.
 
 ---
 
@@ -86,54 +62,71 @@ Three-column grid `[300px_1fr_320px]`:
 
 | Path | Type | Purpose |
 |---|---|---|
-| `/` | Page | Landing / marketing page with CTA to studio |
-| `/studio` | Page | 3-column workspace — inputs, live preview, chat, style sliders |
-| `/api/chat` | POST | `{ prompt }` → Gemini mutation → `{ success, updatedHtml }` |
-| `/api/integrations/verify-figma` | POST | `{ token }` → Figma `/v1/me` → `{ valid }` |
+| `/` | Page | Marketing landing; CTA → `/signup` |
+| `/login`, `/signup` | Page | Supabase email/password (custom forms) |
+| `/dashboard` | Page | List / create / open / delete projects; sign out |
+| `/studio/[projectId]` | Page | Two-state studio: upload sketch → GrapesJS edit |
+| `/api/projects` | GET/POST | List / create projects |
+| `/api/projects/[id]` | GET/PATCH/DELETE | Load / autosave (name/html/css) / delete (+ storage cleanup) |
+| `/api/generate` | POST | `{projectId, image}` → store sketch, Gemini→IR→render, persist, return `{ir,html,css}` |
+| `/api/assets` | GET/POST | List / upload project images (signed URLs) |
+
+Route protection: `middleware.ts` guards `/dashboard` and `/studio/*` (unauthenticated → `/login`). Note: Next 16.2 deprecates the `middleware` file convention in favor of `proxy` — a future rename, still functional today.
 
 ---
 
-## Database Architecture (Supabase PostgreSQL — planned)
+## Data Model (Supabase Postgres — RLS-scoped to `auth.uid()`)
 
-Relational schema for project history and Git-like versioning.
+Migrations live in `supabase/migrations/` and are applied by the operator (Supabase SQL editor or CLI).
 
-| Table | Purpose | Key Columns |
+| Table | Key columns | Notes |
 |---|---|---|
-| `users_profiles` | User accounts + encrypted API keys | `id`, `email`, `figma_token_encrypted`, `gemini_user_key_encrypted` |
-| `projects` | Top-level container per user | `id`, `user_id`, `name`, `target_framework` |
-| `project_versions` | Git-like history of UI mutations | `id`, `project_id`, `version_number`, `raw_code_content`, `prompt_mutation_source` |
+| `profiles` | `id → auth.users`, `email`, `created_at` | Auto-created by a `handle_new_user()` signup trigger |
+| `projects` | `id`, `user_id`, `name`, `sketch_path`, `ir jsonb`, `html`, `css`, `created_at`, `updated_at` | `html`/`css` are the source of truth after generation; `ir` is the seed |
+| `project_assets` | `id`, `project_id`, `user_id`, `storage_path`, `filename`, `created_at` | One row per uploaded image |
 
-Row Level Security (RLS) ensures users only access their own rows.
+**Storage buckets** (private, path-prefixed by user id, owner-scoped policies):
+- `sketches/{user_id}/{projectId}/…` — original uploads (has select/insert/**update**/delete policies; update is required because the route uploads with `upsert`).
+- `assets/{user_id}/{projectId}/…` — user images placed in pages.
+
+**Portable export:** on export, referenced image URLs are rewritten to relative `./assets/…` paths and the images are bundled into the `.zip`, so an exported site has **zero backend dependency**. In-editor preview uses signed URLs.
 
 ---
 
 ## Project Directory Structure
 
-Next.js App Router — public routes strictly separated from secure background APIs.
-
 ```
 paperpage/
 ├── app/
-│   ├── layout.tsx                          # Root <html>/<body>, suppressHydrationWarning to avoid extension crashes
-│   ├── page.tsx                            # Marketing landing page
-│   ├── globals.css                         # Tailwind base layers
-│   ├── studio/
-│   │   ├── layout.tsx                      # Studio shell (header + Deploy button)
-│   │   └── page.tsx                        # Multi-panel UI editor
+│   ├── layout.tsx                       # root <html>/<body>, metadata
+│   ├── page.tsx                         # marketing landing (CTA → /signup)
+│   ├── globals.css
+│   ├── login/page.tsx  signup/page.tsx  # auth pages (render AuthForm)
+│   ├── dashboard/page.tsx               # server load → DashboardClient
+│   ├── studio/[projectId]/page.tsx      # server load → StudioClient
 │   └── api/
-│       ├── chat/route.ts                   # Secure Gemini AI proxy
-│       └── integrations/
-│           └── verify-figma/route.ts       # Proxy for Figma PAT validation
+│       ├── projects/route.ts            # GET list, POST create
+│       ├── projects/[id]/route.ts       # GET, PATCH, DELETE
+│       ├── generate/route.ts            # sketch → Gemini → IR → render → persist
+│       └── assets/route.ts              # GET list, POST upload
 ├── components/
-│   └── IntegrationWizard.tsx               # Reusable key-input modal
+│   ├── auth/AuthForm.tsx                # email/password form
+│   ├── dashboard/{ProjectCard,DashboardClient}.tsx
+│   └── studio/{Uploader,Editor,StudioClient,ExportButton}.tsx
+├── lib/
+│   ├── supabase/{client,server,middleware}.ts
+│   └── gemini.ts                        # server-only Gemini Vision wrapper
 ├── utils/
-│   └── exportEcosystem.ts                  # Tone swap + deployment helpers
-├── pages/                                  # Empty (App Router only; do not use)
-├── next.config.mjs
-├── tailwind.config.ts                      # Aurora Glassmorphism tokens
-├── postcss.config.mjs
-├── tsconfig.json                           # `@/*` alias via Next default
-└── .env.local                              # Supabase + Gemini keys
+│   ├── projects/name.ts                 # normalizeProjectName (+ .test.ts)
+│   ├── ir/schema.ts                     # Zod Layout IR (+ .test.ts)
+│   ├── renderer.ts                      # IR → {html, css} (+ .test.ts)
+│   ├── debounce.ts                      # autosave debounce (+ .test.ts)
+│   └── export/bundle.ts                 # url extract/rewrite + zip (+ .test.ts)
+├── middleware.ts                        # route guard
+├── supabase/migrations/000{1..4}_*.sql  # profiles, projects, sketches bucket, assets
+├── vitest.config.ts                     # unit tests (@/ alias via vite-tsconfig-paths)
+├── tailwind.config.ts                   # Aurora tokens
+└── tsconfig.json                        # @/* path alias → ./*
 ```
 
 ---
@@ -143,72 +136,56 @@ paperpage/
 ```
 NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
-GEMINI_API_KEY=...
+GEMINI_API_KEY=...            # server-side only; never reaches the browser
 ```
 
-Replace placeholders before running against real services. In production, configure these in Vercel project settings (never commit real keys).
-
----
-
-## Deployment & Hosting Infrastructure
-
-Serverless — no manual servers (Apache/Nginx). Highly scalable, free for development.
-
-### Frontend & API — Vercel
-- GitHub-connected: every `git push` triggers compile + edge deploy.
-- Native Next.js compatibility (App Router, server API routes, image optimization) — Next.js is built by Vercel.
-- Served on secure HTTPS (e.g., `paperpage.vercel.app`).
-
-### Database & State — Supabase Cloud
-- Managed PostgreSQL with Row Level Security so users only see their own project rows.
-- Auto-generated REST APIs consumed by Next.js server routes.
-- Connection strictly via env vars set in Vercel project settings.
+No service-role key: server routes use the **user-scoped** Supabase server client (anon key + cookies) so RLS stays in force. See `.env.example`.
 
 ---
 
 ## Scripts
 
-- `npm run dev` — start Next.js dev server
+- `npm run dev` — dev server
 - `npm run build` — production build
 - `npm run start` — run production build
 - `npm run lint` — Next.js lint
-
----
-
-## Current Implementation Status
-
-Honest snapshot — many blueprint features are UI-only or stubbed.
-
-**Implemented**
-- Landing page with Aurora hero, feature grid, CTA to `/studio`.
-- Studio 3-column shell (Input Lounge, Viewport iframe with `srcDoc`, Customizer).
-- `IntegrationWizard` with real Figma `/v1/me` validation round-trip.
-- `/api/chat` and `/api/integrations/verify-figma` route handlers.
-- Aurora Glassmorphism theme tokens in Tailwind config.
-
-**Stubbed / Planned**
-- `app/api/chat/route.ts` — Gemini call not implemented; returns empty `updatedHtml`.
-- `utils/exportEcosystem.ts` — `handleStagingDeployment` only `console.log`s and returns a hard-coded staging URL.
-- Supabase — env vars declared, no client instantiated, no `users_profiles` / `projects` / `project_versions` tables created.
-- Studio right-column sliders and palette swatches are visual only (no state wiring).
-- Figma Frame URL input in `/studio` is not wired to the preview iframe.
-- Shadcn/UI toggle, Tone & Copy Swapper — not built.
-- Auth flow, key encryption, RLS policies — not built.
+- `npm test` — Vitest (unit tests: name, IR schema, renderer, debounce, bundle)
+- `npm run test:watch` — Vitest watch mode
 
 ---
 
 ## Conventions
 
-- App Router only. Do not add files to `pages/`.
-- Client components must declare `'use client'` (see `IntegrationWizard.tsx`, `app/studio/page.tsx`).
-- API routes live under `app/api/**/route.ts` and export named HTTP verb functions (`POST`, etc.).
-- Import alias: `@/components/...`, `@/utils/...` (resolved via Next's default TS path handling).
-- `suppressHydrationWarning` on `<body>` swallows browser-extension diffs.
-- Never expose user API keys to the browser — always proxy through `/api/*` server routes.
-- Iframe rendering uses `srcDoc` to sandbox generated UI from the parent app.
+- **App Router only.** Do not add files to `pages/`. API routes are `app/api/**/route.ts` exporting named verb functions.
+- Client components declare `'use client'` (all `components/**` interactive files). GrapesJS is **dynamically imported, client-only** (`ssr: false`), because it's browser-only.
+- **Generated pages are plain HTML/CSS (`pp-*` classes + CSS variables), not Tailwind.** The app's own UI uses Tailwind.
+- **Gemini runs server-side only** (`lib/gemini.ts` starts with `import 'server-only'`); never import it into a client component.
+- **RLS everywhere.** All tables/buckets are owner-scoped; server routes use the user-scoped server client as defense-in-depth. Never trust a client-supplied `user_id`.
+- Generated HTML is **safe by construction** — emitted only by `utils/renderer.ts`, all text escaped, no scripts/untrusted URLs.
+- Import alias `@/...` (configured via `tsconfig.json` `paths` and `vite-tsconfig-paths` for tests).
+- Iframe/canvas rendering is sandboxed by GrapesJS; export bundles images to relative paths for a backend-free static site.
+
+---
+
+## Current Implementation Status
+
+**Implemented (v1)**
+- Email/password auth (`/login`, `/signup`), signup-trigger `profiles`, middleware route guards.
+- Project CRUD (`/api/projects*`) + dashboard list/create/delete/sign-out.
+- Generation pipeline: IR Zod schema, deterministic renderer, server-only Gemini Vision wrapper, `POST /api/generate` (sketch → Storage → IR → render → persist, with validation + one retry).
+- Studio: sketch uploader (drag/drop), GrapesJS editor with curated style/block/layer/device managers and curated Google Fonts, debounced autosave, editable project name.
+- Assets: `assets` bucket + `project_assets`, `/api/assets`, GrapesJS asset manager wired to Supabase Storage (signed URLs).
+- Export: client-side `.zip` of portable HTML/CSS with images bundled to relative paths.
+- Aurora Glassmorphism theme tokens.
+
+**Phase 2 (explicitly NOT in v1)**
+- **Figma export** — the stored Layout IR is designed to make this tractable later.
+- **AI chat iteration** ("chat with your UI").
+- **Version history** (Git-like project versions).
+- Multi-page sites, teams/collaboration, OAuth/magic-link auth.
 
 ---
 
 ## Maintenance Note
 
-**This file is the master project specification and must be kept in sync with the codebase.** When adding routes, components, tables, env vars, or dependencies — or shifting architecture — update the relevant section of this file in the same change. When a stub in "Current Implementation Status" ships, move it from Planned → Implemented.
+**This file is the master project reference and must be kept in sync with the codebase.** When adding routes, components, tables, buckets, env vars, or dependencies — or shifting architecture — update the relevant section here in the same change. When a Phase-2 item ships, move it into "Implemented."
