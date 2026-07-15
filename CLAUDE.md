@@ -71,7 +71,7 @@ The highest-value, highest-risk piece. **One-way render:** the IR generates the 
 | `/api/generate` | POST | `{projectId, image}` → store sketch, Gemini→IR→render, persist, return `{ir,html,css}` |
 | `/api/assets` | GET/POST | List / upload project images (signed URLs) |
 
-Route protection: `middleware.ts` guards `/dashboard` and `/studio/*` (unauthenticated → `/login`). Note: Next 16.2 deprecates the `middleware` file convention in favor of `proxy` — a future rename, still functional today.
+Route protection: `proxy.ts` (Next 16's rename of the `middleware` convention; exports `proxy()`) guards `/dashboard` and `/studio/*` (unauthenticated → `/login`).
 
 ---
 
@@ -122,7 +122,7 @@ paperpage/
 │   ├── renderer.ts                      # IR → {html, css} (+ .test.ts)
 │   ├── debounce.ts                      # autosave debounce (+ .test.ts)
 │   └── export/bundle.ts                 # url extract/rewrite + zip (+ .test.ts)
-├── middleware.ts                        # route guard
+├── proxy.ts                             # route guard (Next 16 middleware→proxy)
 ├── supabase/migrations/000{1..4}_*.sql  # profiles, projects, sketches bucket, assets
 ├── vitest.config.ts                     # unit tests (@/ alias via vite-tsconfig-paths)
 ├── tailwind.config.ts                   # Aurora tokens
