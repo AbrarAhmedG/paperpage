@@ -1,6 +1,6 @@
 import 'server-only';
 import sharp from 'sharp';
-import { SECTION_ROLES, ELEMENT_TYPES, CURATED_FONTS } from '@/utils/ir/schema';
+import { LAYOUT_PROMPT } from './prompt';
 
 export async function downscaleImage(
   buffer: Buffer,
@@ -13,48 +13,6 @@ export async function downscaleImage(
     .toBuffer();
   return { data: out.toString('base64'), mimeType: 'image/jpeg' };
 }
-
-// Self-contained prompt: the JSON shape is described here (no provider-native
-// schema needed), so any OpenAI-compatible vision model can produce it. The IR
-// is still validated with Zod (utils/ir/schema.ts) after generation.
-const PROMPT = `You are a web layout interpreter. You are given a photo of a hand-drawn website page sketch.
-Return ONLY a single JSON object (no markdown, no commentary) with EXACTLY this shape:
-
-{
-  "theme": {
-    "palette": { "primary": "#RRGGBB", "secondary": "#RRGGBB", "background": "#RRGGBB", "surface": "#RRGGBB", "text": "#RRGGBB" },
-    "fonts": { "heading": "<allowed font>", "body": "<allowed font>" },
-    "spacing": "compact" | "normal" | "roomy"
-  },
-  "sections": [
-    {
-      "id": "<short unique string>",
-      "role": "<one of: ${SECTION_ROLES.join(', ')}>",
-      "background": "default" | "surface" | "primary" | "gradient" | "dark",
-      "layout": { "columns": <integer 1-12>, "align": "start" | "center" | "end" },
-      "elements": [
-        { "type": "<one of: ${ELEMENT_TYPES.join(', ')}>", "text": "<optional>", "level": "<optional 1-4>", "variant": "<optional: primary|secondary|ghost>", "items": ["<optional list>"], "placeholder": "<optional>", "alt": "<optional>", "col": "<optional 1-indexed column>", "colSpan": "<optional integer>", "row": "<optional 1-indexed row>" }
-      ]
-    }
-  ]
-}
-
-Allowed fonts (use these EXACT names only, for both heading and body): ${CURATED_FONTS.join(', ')}.
-
-Rules:
-- Be THOROUGH and DETAILED. Capture EVERY distinct component you can see — nav bars, tabs, search, buttons, cards, article/list items, images, video players, stats/badges, footers, and so on. Do NOT omit, merge, or over-simplify: a dense sketch should produce MANY elements across several sections. Reproduce the sketch, not a generic template.
-- Do not fabricate whole sections or features that are not drawn — but DO fill in the pieces that ARE drawn (labels and copy, per the label rule below).
-- Every section object MUST include an "elements" array with at least one element. Never omit the "elements" key.
-- Infer each section's role from the drawing; order sections top-to-bottom exactly as drawn.
-- PLACE ELEMENTS ON A GRID to match the drawing's 2D arrangement. Set the section's "columns" to the number of columns you see, and give each element a "col" (1-indexed; col 1 = leftmost), plus "colSpan" for wide items and "row" for vertical position. Elements drawn side by side get DIFFERENT "col" values; a full-width banner uses "colSpan" equal to "columns". If a region is a simple single column, use columns 1 and omit col/row.
-- Map each drawn region to the closest element type: a photo/picture box -> "image" (put any label in "alt"); a media box with a play triangle -> "video"; a horizontal row of tabs, steps, breadcrumbs, or numbered pagination (boxes labeled 1 2 3 4, arrows) -> "tabs" (put each label/number in "items"); a search or input field -> "input"; a menu or bullet list -> "list" (labels in "items"); a block of body text -> "paragraph"; a logo/brand mark -> "logo"; a divider line -> "divider".
-- All palette colors MUST be 6-digit hex. Choose a MODERN, VIBRANT, COLORFUL palette (a confident primary and a complementary secondary accent, high-contrast, light background; do NOT use greys or pure black #000000 as primary). Set each section's "background" for visual rhythm — prefer a "gradient" hero, alternating "surface" on some sections, and a "dark" footer; use "default" for the rest.
-- The main title is a heading with "level": 1.
-- ALWAYS give buttons, tabs, and nav/menu links a short sensible label. If the sketch's text is unclear or absent, INVENT an appropriate one for the context (e.g. "Home", "About", "Next", "Subscribe", "Read more", or "1"/"2"/"3" for pagination).
-- Headings and body paragraphs are the ONLY types where you may leave "text" empty when the writing is unclear (the renderer fills neutral placeholder copy).
-- Use "normal" spacing unless the sketch is clearly dense (compact) or airy (roomy).
-- If the image is clearly NOT a hand-drawn web-page layout, return a single "hero" section with one heading and one paragraph as a starter — do not invent a full site.
-- Output the JSON object only.`;
 
 // Pull the first balanced JSON object out of the model's reply (handles code
 // fences or stray prose that some models add around the JSON).
@@ -84,7 +42,7 @@ async function callViaAnthropic(image: { data: string; mimeType: string }): Prom
   const res = await client.messages.create({
     model,
     max_tokens: 8192,
-    system: PROMPT,
+    system: LAYOUT_PROMPT,
     messages: [
       {
         role: 'user',
@@ -133,7 +91,7 @@ async function callViaOpenAICompatible(image: { data: string; mimeType: string }
       // in JSON.parse and silently degrades the result via the route's retry.
       response_format: { type: 'json_object' },
       messages: [
-        { role: 'system', content: PROMPT },
+        { role: 'system', content: LAYOUT_PROMPT },
         {
           role: 'user',
           content: [

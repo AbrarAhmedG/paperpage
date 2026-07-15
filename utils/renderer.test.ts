@@ -311,6 +311,25 @@ describe('renderPage', () => {
     expect(html).toContain('data:image/svg+xml');
   });
 
+  it('renders small circle/avatar images as circular tiles, not full photos', () => {
+    const a: PageIR = {
+      ...ir,
+      sections: [
+        { id: 'g', role: 'gallery', background: 'default', layout: { columns: 3, align: 'start' }, elements: [
+          { type: 'image', alt: 'mountain photo', col: 1 }, // a real picture -> photo
+          { type: 'image', alt: 'avatar', col: 2 }, // a circle -> small tile
+          { type: 'image', alt: 'user icon', col: 3 },
+        ] },
+      ],
+    };
+    const { html, css } = renderPage(a);
+    expect((html.match(/pp-image--avatar/g) || []).length).toBe(2); // both circles
+    // avatars use a mesh placeholder, not a stock photo
+    expect(html).toMatch(/pp-image--avatar[^>]*src="data:image\/svg\+xml/);
+    expect((html.match(/src="https:\/\/images\.unsplash\.com/g) || []).length).toBe(1); // only the real picture
+    expect(css).toContain('.pp-image--avatar');
+  });
+
   it('wraps CTA content in an inset gradient panel', () => {
     const c: PageIR = {
       ...ir,

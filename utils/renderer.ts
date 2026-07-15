@@ -158,9 +158,16 @@ function renderElement(el: Element, ctx: RenderCtx, role: Section['role']): stri
       return `<a class="pp-button pp-button--${v}" href="#">${label}${tail}</a>`;
     }
     case 'image': {
-      // Hero & gallery slots get a curated photograph; everything else gets the
-      // palette-mesh placeholder. Both stay replaceable (data-pp-asset) and both
-      // bundle offline on export.
+      // A small round avatar/icon (the sketch's circles) renders as a small
+      // circular mesh tile — NOT a full-bleed photo — so circles stay circles.
+      const altLc = (el.alt || '').toLowerCase();
+      if (/avatar|icon|circle|profile/.test(altLc)) {
+        const ph = placeholderSvg(ctx.primary, ctx.secondary, ctx.img.v++);
+        return `<img class="pp-image pp-image--avatar" data-pp-asset="1" src="${ph}" alt="${esc(el.alt)}" />`;
+      }
+      // Hero & gallery picture regions get a curated photograph; everything else
+      // gets the palette-mesh placeholder. All stay replaceable (data-pp-asset)
+      // and bundle offline on export.
       if (role === 'hero' || role === 'gallery') {
         const src = CURATED_PHOTOS[ctx.photo.v++ % CURATED_PHOTOS.length];
         return `<img class="pp-image" data-pp-asset="1" src="${src}" alt="${esc(el.alt)}" loading="lazy" />`;
@@ -328,6 +335,7 @@ h3.pp-heading { font-size: 1.28rem; }
 /* Media, lists, inputs */
 .pp-image { width: 100%; height: auto; aspect-ratio: 4 / 3; border-radius: var(--pp-radius); display: block; object-fit: cover; box-shadow: var(--pp-shadow); border: 1px solid var(--pp-border); transition: transform 0.35s ease; background: linear-gradient(135deg, color-mix(in srgb, var(--pp-primary) 70%, #0b1020), color-mix(in srgb, var(--pp-secondary) 45%, #0b1020)); }
 .pp-features .pp-cell:hover .pp-image, .pp-gallery .pp-cell:hover .pp-image { transform: scale(1.025); }
+.pp-image--avatar { width: 72px; height: 72px; min-height: 0; aspect-ratio: 1 / 1; border-radius: 50%; }
 .pp-list { margin: 0; padding-left: 1.15rem; }
 .pp-list li { margin: 0.35rem 0; }
 .pp-list li::marker { color: var(--pp-primary); }
