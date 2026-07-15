@@ -163,10 +163,12 @@ describe('renderPage', () => {
     expect(html).toContain('pp-bg-gradient');
   });
 
-  it('collapses to a single column on small screens', () => {
+  it('collapses multi-column layouts responsively (tablet 2-col + mobile 1-col)', () => {
     const { css } = renderPage(ir);
-    expect(css).toContain('@media (max-width: 768px)');
+    expect(css).toContain('@media (max-width: 960px)'); // tablet -> 2 columns
+    expect(css).toContain('@media (max-width: 600px)'); // mobile -> 1 column
     expect(css).toContain('grid-template-columns: 1fr');
+    expect(css).toContain('grid-column: auto'); // drops explicit placement so cells repack
   });
 
   it('fills placeholder copy for empty elements', () => {
@@ -236,5 +238,61 @@ describe('renderPage', () => {
     const { css } = renderPage(ir);
     expect(css).toMatch(/\.pp-nav \.pp-list\s*\{[^}]*display:\s*flex/);
     expect(css).toMatch(/\.pp-nav \.pp-list[^{]*\{[^}]*list-style:\s*none/);
+  });
+
+  it('gives feature cards a themed icon tile', () => {
+    const f: PageIR = {
+      ...ir,
+      sections: [
+        {
+          id: 'f',
+          role: 'features',
+          background: 'default',
+          layout: { columns: 2, align: 'start' },
+          elements: [
+            { type: 'heading', text: 'A', col: 1 },
+            { type: 'paragraph', text: 'a', col: 1 },
+            { type: 'heading', text: 'B', col: 2 },
+            { type: 'paragraph', text: 'b', col: 2 },
+          ],
+        },
+      ],
+    };
+    const { html, css } = renderPage(f);
+    expect((html.match(/class="pp-icon"/g) || []).length).toBe(2); // one tile per card
+    expect(html).toContain('<svg'); // inline icon, safe by construction
+    expect(css).toContain('.pp-icon');
+  });
+
+  it('adds a trailing arrow icon to primary buttons only', () => {
+    const { html } = renderPage(ir); // hero has a primary "Go" button
+    expect(html).toMatch(/pp-button--primary[^>]*>[^<]*Go<svg/);
+  });
+
+  it('placeholder is a layered mesh (radial spots) with a media glyph', () => {
+    const { html } = renderPage(ir);
+    const src = html.match(/src="(data:image\/svg\+xml[^"]*)"/)?.[1] ?? '';
+    const decoded = decodeURIComponent(src.replace('data:image/svg+xml;utf8,', ''));
+    expect(decoded).toContain('radialGradient'); // mesh spots (not a flat 2-stop box)
+    expect(decoded).toContain('stroke="#ffffff"'); // the soft image glyph
+    expect(decoded).not.toContain('%2523'); // still not double-encoded
+  });
+
+  it('wraps CTA content in an inset gradient panel', () => {
+    const c: PageIR = {
+      ...ir,
+      sections: [
+        {
+          id: 'c',
+          role: 'cta',
+          background: 'default',
+          layout: { columns: 1, align: 'center' },
+          elements: [{ type: 'heading', text: 'Sign up' }, { type: 'button', text: 'Go' }],
+        },
+      ],
+    };
+    const { html, css } = renderPage(c);
+    expect(html).toContain('class="pp-cta__inner"');
+    expect(css).toContain('.pp-cta__inner');
   });
 });
