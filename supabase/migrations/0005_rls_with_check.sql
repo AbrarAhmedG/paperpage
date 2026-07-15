@@ -11,10 +11,10 @@
 -- (Fresh setups get it via apply-all.sql / migrations 0001–0002.)
 -- ALTER POLICY keeps each policy's existing USING clause and only adds the check.
 
-alter policy "Projects updatable by owner"
-  on public.projects
-  with check (auth.uid() = user_id);
+  alter policy "Projects updatable by owner"
+    on public.projects
+    with check (auth.uid() = user_id);
 
-alter policy "Profiles are updatable by owner"
-  on public.profiles
-  with check (auth.uid() = id);
+  alter policy "Profiles are updatable by owner"
+    on public.profiles
+    with check (auth.uid() = id);
