@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { serverError } from '@/lib/apiError';
 import { downscaleImage, callGeminiVision } from '@/lib/gemini';
 import { validateIR, type PageIR } from '@/utils/ir/schema';
 import { renderPage } from '@/utils/renderer';
@@ -40,7 +41,7 @@ export async function POST(req: Request) {
       contentType: 'image/jpeg',
       upsert: true,
     });
-  if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 });
+  if (upErr) return serverError('generate: sketch upload', upErr);
 
   // 2 + 3. Gemini → IR, validate, one retry.
   let ir: PageIR | null = null;
@@ -59,7 +60,13 @@ export async function POST(req: Request) {
     }
   }
   if (!ir) {
-    return NextResponse.json({ error: `Could not interpret sketch: ${lastError}` }, { status: 422 });
+    // Log the underlying model/validation detail server-side; return a friendly,
+    // non-leaky message (lastError can carry upstream provider text).
+    console.error('[api] generate: interpret failed:', lastError);
+    return NextResponse.json(
+      { error: 'Could not interpret your sketch. Try a clearer, higher-contrast photo of a page layout.' },
+      { status: 422 },
+    );
   }
 
   // 4. Render.
@@ -72,7 +79,7 @@ export async function POST(req: Request) {
     .eq('id', projectId)
     .select('id')
     .maybeSingle();
-  if (saveErr) return NextResponse.json({ error: saveErr.message }, { status: 500 });
+  if (saveErr) return serverError('generate: persist', saveErr);
   if (!saved) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
 
   return NextResponse.json({ ir, html, css });

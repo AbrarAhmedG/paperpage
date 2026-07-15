@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { serverError } from '@/lib/apiError';
 
 const SIGNED_TTL = 60 * 60 * 24 * 7; // 1 week
 
@@ -24,14 +25,14 @@ export async function POST(req: Request) {
   const { error: upErr } = await supabase.storage
     .from('assets')
     .upload(storagePath, buffer, { contentType: file.type, upsert: false });
-  if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 });
+  if (upErr) return serverError('asset: upload', upErr);
 
   const { data: row, error: dbErr } = await supabase
     .from('project_assets')
     .insert({ project_id: projectId, user_id: user.id, storage_path: storagePath, filename: safeName })
     .select('id, storage_path, filename')
     .single();
-  if (dbErr) return NextResponse.json({ error: dbErr.message }, { status: 500 });
+  if (dbErr) return serverError('asset: insert', dbErr);
 
   const { data: signed } = await supabase.storage.from('assets').createSignedUrl(storagePath, SIGNED_TTL);
   return NextResponse.json({ ...row, url: signed?.signedUrl }, { status: 201 });
@@ -52,7 +53,7 @@ export async function GET(req: Request) {
     .select('id, filename, storage_path')
     .eq('project_id', projectId)
     .order('created_at', { ascending: false });
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError('assets: list', error);
 
   const assets = await Promise.all(
     (rows ?? []).map(async (r) => {

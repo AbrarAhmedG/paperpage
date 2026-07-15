@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { serverError } from '@/lib/apiError';
 import { normalizeProjectName } from '@/utils/projects/name';
 
 export async function GET() {
@@ -14,7 +15,7 @@ export async function GET() {
     .select('id, name, sketch_path, updated_at')
     .order('updated_at', { ascending: false });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError('projects: list', error);
   return NextResponse.json({ projects: data });
 }
 
@@ -34,6 +35,6 @@ export async function POST(req: Request) {
     .select('id')
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError('projects: create', error);
   return NextResponse.json({ id: data.id }, { status: 201 });
 }

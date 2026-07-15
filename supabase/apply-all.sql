@@ -19,7 +19,8 @@ create policy "Profiles are viewable by owner"
 
 create policy "Profiles are updatable by owner"
   on public.profiles for update
-  using (auth.uid() = id);
+  using (auth.uid() = id)
+  with check (auth.uid() = id);
 
 -- Auto-create a profile row when a new auth user signs up.
 create or replace function public.handle_new_user()
@@ -62,7 +63,7 @@ create policy "Projects selectable by owner"
 create policy "Projects insertable by owner"
   on public.projects for insert with check (auth.uid() = user_id);
 create policy "Projects updatable by owner"
-  on public.projects for update using (auth.uid() = user_id);
+  on public.projects for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "Projects deletable by owner"
   on public.projects for delete using (auth.uid() = user_id);
 

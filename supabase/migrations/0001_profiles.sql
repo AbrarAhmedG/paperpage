@@ -12,7 +12,8 @@ create policy "Profiles are viewable by owner"
 
 create policy "Profiles are updatable by owner"
   on public.profiles for update
-  using (auth.uid() = id);
+  using (auth.uid() = id)
+  with check (auth.uid() = id);
 
 -- Auto-create a profile row when a new auth user signs up.
 create or replace function public.handle_new_user()
