@@ -150,6 +150,8 @@ export default function Editor({
             { id: 'button-ghost', label: 'Button (ghost)', category: 'Content', content: '<a class="pp-button pp-button--ghost" href="#">Button</a>' },
             { id: 'input', label: 'Input', category: 'Content', content: '<input class="pp-input" type="text" placeholder="Enter text" />' },
             { id: 'logo', label: 'Logo', category: 'Content', content: '<span class="pp-logo">Logo</span>' },
+            { id: 'tabs', label: 'Tabs', category: 'Content', content: '<div class="pp-tabs" role="tablist"><button class="pp-tab pp-tab--active" type="button">Tab 1</button><button class="pp-tab" type="button">Tab 2</button><button class="pp-tab" type="button">Tab 3</button></div>' },
+            { id: 'video', label: 'Video', category: 'Content', content: '<div class="pp-video"><span class="pp-video__play" aria-hidden="true"></span></div>' },
             // --- Sections ---
             { id: 'nav', label: 'Navbar', category: 'Sections', content: '<section data-region="nav" class="pp-section pp-nav pp-bg-default" style="--pp-cols:2"><div class="pp-container"><div class="pp-cell"><span class="pp-logo">Logo</span></div><div class="pp-cell"><ul class="pp-list"><li>Home</li><li>About</li><li>Services</li><li>Contact</li></ul></div></div></section>' },
             { id: 'hero', label: 'Hero', category: 'Sections', content: '<section data-region="hero" class="pp-section pp-hero pp-bg-gradient" style="--pp-cols:1"><div class="pp-container"><div class="pp-cell"><h1 class="pp-heading">Your headline goes here</h1><p class="pp-paragraph">Supporting text that explains the value.</p><a class="pp-button pp-button--primary" href="#">Get started</a></div></div></section>' },
