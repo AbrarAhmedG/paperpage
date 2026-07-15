@@ -142,4 +142,35 @@ describe('renderPage', () => {
     expect(css).toContain('.pp-button:hover');
     expect(css).toContain('box-shadow');
   });
+
+  it('groups consecutive same-column elements into one cell (prevents overlap)', () => {
+    const g: PageIR = {
+      ...ir,
+      sections: [
+        {
+          id: 'f',
+          role: 'features',
+          background: 'default',
+          layout: { columns: 2, align: 'start' },
+          elements: [
+            { type: 'heading', text: 'A', col: 1 },
+            { type: 'paragraph', text: 'a', col: 1 },
+            { type: 'heading', text: 'B', col: 2 },
+            { type: 'paragraph', text: 'b', col: 2 },
+          ],
+        },
+      ],
+    };
+    const { html } = renderPage(g);
+    // Two column stacks -> two cells, not four overlapping ones.
+    expect((html.match(/class="pp-cell"/g) || []).length).toBe(2);
+    expect(html).toContain('grid-column:1 / span 1');
+    expect(html).toContain('grid-column:2 / span 1');
+  });
+
+  it('renders nav menus horizontally, not as vertical bullets', () => {
+    const { css } = renderPage(ir);
+    expect(css).toMatch(/\.pp-nav \.pp-list\s*\{[^}]*display:\s*flex/);
+    expect(css).toMatch(/\.pp-nav \.pp-list[^{]*\{[^}]*list-style:\s*none/);
+  });
 });
