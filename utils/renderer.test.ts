@@ -12,6 +12,7 @@ const ir: PageIR = {
     {
       id: 's1',
       role: 'hero',
+      background: 'default',
       layout: { columns: 1, align: 'center' },
       elements: [
         { type: 'heading', level: 1, text: 'Welcome <script>alert(1)</script>' },
@@ -22,6 +23,7 @@ const ir: PageIR = {
     {
       id: 's2',
       role: 'footer',
+      background: 'default',
       layout: { columns: 3, align: 'start' },
       elements: [{ type: 'paragraph', text: 'Contact us' }],
     },
@@ -79,5 +81,34 @@ describe('renderPage', () => {
     expect(css).toContain('Poppins');
     expect(css).toContain('Inter');
     expect(css).toContain('fonts.googleapis.com');
+  });
+
+  it('renders a section as a CSS grid with the requested column count', () => {
+    const g: PageIR = {
+      ...ir,
+      sections: [
+        {
+          id: 'g',
+          role: 'hero',
+          background: 'gradient',
+          layout: { columns: 4, align: 'start' },
+          elements: [
+            { type: 'image', alt: 'video', col: 1, colSpan: 2, rowSpan: 2 },
+            { type: 'paragraph', text: 'chat', col: 3, colSpan: 2 },
+          ],
+        },
+      ],
+    };
+    const { html, css } = renderPage(g);
+    expect(css).toContain('grid-template-columns: repeat(var(--pp-cols)');
+    expect(html).toContain('--pp-cols:4');
+    expect(html).toContain('grid-column:1 / span 2');
+    expect(html).toContain('pp-bg-gradient');
+  });
+
+  it('collapses to a single column on small screens', () => {
+    const { css } = renderPage(ir);
+    expect(css).toContain('@media (max-width: 768px)');
+    expect(css).toContain('grid-template-columns: 1fr');
   });
 });

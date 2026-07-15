@@ -49,11 +49,40 @@ function renderElement(el: Element): string {
   }
 }
 
+const clampInt = (n: number | undefined, lo: number, hi: number): number | undefined =>
+  n == null ? undefined : Math.min(Math.max(Math.trunc(n), lo), hi);
+
+// Build the inline grid-placement style for one element from its validated
+// (positive-int) coordinates, clamped to the section's column count. Only
+// integers derived from the IR reach `style=`, so this stays injection-safe.
+function placementStyle(el: Element, columns: number): string {
+  const parts: string[] = [];
+  const col = clampInt(el.col, 1, columns);
+  if (col != null) {
+    const span = clampInt(el.colSpan ?? 1, 1, columns - col + 1) ?? 1;
+    parts.push(`grid-column:${col} / span ${span}`);
+  } else if (el.colSpan && columns > 1) {
+    parts.push(`grid-column: span ${clampInt(el.colSpan, 1, columns)}`);
+  }
+  const row = clampInt(el.row, 1, 100);
+  if (row != null) {
+    const rspan = clampInt(el.rowSpan ?? 1, 1, 100) ?? 1;
+    parts.push(`grid-row:${row} / span ${rspan}`);
+  } else if (el.rowSpan) {
+    parts.push(`grid-row: span ${clampInt(el.rowSpan, 1, 100)}`);
+  }
+  return parts.length ? ` style="${parts.join(';')}"` : '';
+}
+
 function renderSection(section: Section): string {
-  const inner = section.elements.map(renderElement).join('\n      ');
-  return `  <section data-region="${section.role}" class="pp-section pp-${section.role}" data-cols="${section.layout.columns}" data-align="${section.layout.align}">
+  const cols = section.layout.columns;
+  const bg = section.background ?? 'default';
+  const cells = section.elements
+    .map((el) => `<div class="pp-cell"${placementStyle(el, cols)}>${renderElement(el)}</div>`)
+    .join('\n      ');
+  return `  <section data-region="${section.role}" class="pp-section pp-${section.role} pp-bg-${bg}" data-align="${section.layout.align}" style="--pp-cols:${cols}">
     <div class="pp-container">
-      ${inner}
+      ${cells}
     </div>
   </section>`;
 }
@@ -89,8 +118,9 @@ export function renderPage(ir: PageIR): { html: string; css: string } {
 * { box-sizing: border-box; }
 .pp-page { margin: 0; background: var(--pp-background); color: var(--pp-text); font-family: var(--pp-font-body); line-height: 1.6; }
 .pp-section { padding: var(--pp-space) 1.5rem; }
-.pp-container { max-width: 1100px; margin: 0 auto; }
-.pp-hero { text-align: center; background: var(--pp-surface); }
+.pp-container { display: grid; grid-template-columns: repeat(var(--pp-cols), 1fr); gap: 1.5rem; max-width: 1100px; margin: 0 auto; align-items: start; }
+.pp-cell { min-width: 0; }
+.pp-hero { text-align: center; }
 .pp-heading { font-family: var(--pp-font-heading); font-weight: 700; margin: 0 0 1rem; }
 .pp-paragraph { margin: 0 0 1rem; }
 .pp-button { display: inline-block; padding: 0.75rem 1.5rem; border-radius: 0.75rem; text-decoration: none; font-weight: 600; }
@@ -102,8 +132,20 @@ export function renderPage(ir: PageIR): { html: string; css: string } {
 .pp-input { width: 100%; padding: 0.75rem 1rem; border: 1px solid #cbd5e1; border-radius: 0.5rem; }
 .pp-logo { font-family: var(--pp-font-heading); font-weight: 700; font-size: 1.25rem; }
 .pp-divider { border: none; border-top: 1px solid #e2e8f0; margin: 1.5rem 0; }
-.pp-footer { background: var(--pp-surface); font-size: 0.9rem; }
-.pp-features .pp-container, .pp-gallery .pp-container { display: grid; gap: 1.5rem; }
+.pp-footer { font-size: 0.9rem; }
+
+/* Section background variants (visual rhythm) */
+.pp-bg-surface { background: var(--pp-surface); }
+.pp-bg-primary { background: color-mix(in srgb, var(--pp-primary) 10%, var(--pp-background)); }
+.pp-bg-gradient { background:
+  radial-gradient(1200px 400px at 20% -10%, color-mix(in srgb, var(--pp-primary) 22%, transparent), transparent),
+  radial-gradient(1000px 400px at 90% 0%, color-mix(in srgb, var(--pp-secondary) 22%, transparent), transparent),
+  var(--pp-background); }
+.pp-bg-dark { background: var(--pp-text); color: var(--pp-background); }
+
+@media (max-width: 768px) {
+  .pp-container { grid-template-columns: 1fr; }
+}
 `;
 
   return { html, css };
