@@ -14,7 +14,7 @@ export const SECTION_ROLES = [
 export const SECTION_BACKGROUNDS = ['default', 'surface', 'primary', 'gradient', 'dark'] as const;
 
 export const ELEMENT_TYPES = [
-  'heading', 'paragraph', 'button', 'image', 'list', 'input', 'logo', 'divider',
+  'heading', 'paragraph', 'button', 'image', 'list', 'input', 'logo', 'divider', 'tabs', 'video',
 ] as const;
 
 type ElementType = (typeof ELEMENT_TYPES)[number];
@@ -35,6 +35,8 @@ const ELEMENT_ALIASES: Record<string, ElementType> = {
   ul: 'list', ol: 'list', menu: 'list', navmenu: 'list', bullets: 'list', links: 'list', nav: 'list',
   field: 'input', textbox: 'input', textfield: 'input', search: 'input', form: 'input', email: 'input', textarea: 'input',
   hr: 'divider', line: 'divider', separator: 'divider', rule: 'divider', spacer: 'divider', break: 'divider',
+  tab: 'tabs', tabbar: 'tabs', pagination: 'tabs', pager: 'tabs', breadcrumb: 'tabs', breadcrumbs: 'tabs', steps: 'tabs', stepper: 'tabs', pages: 'tabs',
+  player: 'video', videoplayer: 'video', mediaplayer: 'video', movie: 'video', media: 'video',
 };
 const elementType = z.preprocess((v) => {
   const n = normKey(v);

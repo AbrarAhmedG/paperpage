@@ -65,6 +65,22 @@ describe('pageIRSchema', () => {
     }
   });
 
+  it('accepts tabs and video element types and maps their synonyms', () => {
+    const ir = JSON.parse(JSON.stringify(validIR));
+    ir.sections[0].elements = [
+      { type: 'tabs', items: ['1', '2', '3'] },
+      { type: 'pagination', items: ['1', '2'] }, // -> tabs
+      { type: 'breadcrumb', items: ['Home', 'Docs'] }, // -> tabs
+      { type: 'video' },
+      { type: 'player' }, // -> video
+    ];
+    const r = validateIR(ir);
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.ir.sections[0].elements.map((e) => e.type)).toEqual(['tabs', 'tabs', 'tabs', 'video', 'video']);
+    }
+  });
+
   it('maps section-role synonyms to canonical roles but still rejects truly unknown roles', () => {
     const withSynonym = JSON.parse(JSON.stringify(validIR));
     withSynonym.sections[0].role = 'navbar'; // -> nav

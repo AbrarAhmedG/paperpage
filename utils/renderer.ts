@@ -88,6 +88,15 @@ function renderElement(el: Element, ph: string): string {
       return `<span class="pp-logo">${esc(el.text) || 'Logo'}</span>`;
     case 'divider':
       return `<hr class="pp-divider" />`;
+    case 'tabs': {
+      const items = el.items && el.items.length ? el.items : ['Tab 1', 'Tab 2', 'Tab 3'];
+      const tabs = items
+        .map((t, i) => `<button class="pp-tab${i === 0 ? ' pp-tab--active' : ''}" type="button">${esc(t)}</button>`)
+        .join('');
+      return `<div class="pp-tabs" role="tablist">${tabs}</div>`;
+    }
+    case 'video':
+      return `<div class="pp-video"><span class="pp-video__play" aria-hidden="true"></span></div>`;
     default:
       return '';
   }
@@ -206,6 +215,17 @@ h4.pp-heading { font-size: 1rem; text-transform: uppercase; letter-spacing: 0.06
 .pp-input { width: 100%; padding: 0.75rem 1.1rem; border: 1px solid var(--pp-border); border-radius: 999px; font: inherit; background: #fff; }
 .pp-logo { font-family: var(--pp-font-heading); font-weight: 900; font-size: 1.4rem; letter-spacing: -0.02em; color: var(--pp-primary); }
 .pp-divider { border: none; border-top: 1px solid var(--pp-border); margin: 1.25rem 0; width: 100%; }
+
+/* Tabs / pagination bar */
+.pp-tabs { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.pp-tab { padding: 0.5rem 1.1rem; border-radius: 999px; border: 1px solid var(--pp-border); background: transparent; font: inherit; font-weight: 600; color: var(--pp-muted); cursor: pointer; transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease; }
+.pp-tab:hover { color: var(--pp-primary); border-color: var(--pp-primary); }
+.pp-tab--active { background: var(--pp-primary); color: #fff; border-color: transparent; }
+
+/* Video player mockup */
+.pp-video { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: var(--pp-radius); background: linear-gradient(135deg, color-mix(in srgb, var(--pp-text) 82%, #000), var(--pp-primary)); display: grid; place-items: center; box-shadow: var(--pp-shadow); overflow: hidden; }
+.pp-video__play { width: 72px; height: 72px; border-radius: 50%; background: rgba(255, 255, 255, 0.92); position: relative; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3); }
+.pp-video__play::after { content: ''; position: absolute; top: 50%; left: 54%; transform: translate(-50%, -50%); border-style: solid; border-width: 13px 0 13px 21px; border-color: transparent transparent transparent var(--pp-primary); }
 
 /* Nav bar — horizontal, sticky */
 .pp-nav { padding: 0.9rem 1.5rem; background: color-mix(in srgb, var(--pp-background) 88%, #fff); border-bottom: 1px solid var(--pp-border); position: sticky; top: 0; z-index: 20; backdrop-filter: blur(8px); }

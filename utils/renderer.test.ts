@@ -83,6 +83,37 @@ describe('renderPage', () => {
     expect(css).toContain('animation-timeline: view()');
   });
 
+  it('renders tabs as a horizontal bar (placeholder labels when empty)', () => {
+    const t: PageIR = {
+      ...ir,
+      sections: [
+        { id: 't', role: 'nav', background: 'default', layout: { columns: 1, align: 'start' }, elements: [
+          { type: 'tabs', items: ['1', '2', '3'] },
+          { type: 'tabs' },
+        ] },
+      ],
+    };
+    const { html, css } = renderPage(t);
+    expect(html).toContain('class="pp-tabs"');
+    expect(html).toContain('pp-tab--active');
+    expect(html).toContain('>1</button>'); // first labelled tab
+    expect(html).toContain('>Tab 1</button>'); // placeholder tab
+    expect(css).toContain('.pp-tab--active');
+  });
+
+  it('renders a video player mockup with a play button', () => {
+    const v: PageIR = {
+      ...ir,
+      sections: [
+        { id: 'v', role: 'hero', background: 'default', layout: { columns: 1, align: 'center' }, elements: [{ type: 'video' }] },
+      ],
+    };
+    const { html, css } = renderPage(v);
+    expect(html).toContain('class="pp-video"');
+    expect(html).toContain('pp-video__play');
+    expect(css).toContain('.pp-video');
+  });
+
   it('auto-applies a color rhythm by role when background is default', () => {
     const p: PageIR = {
       ...ir,
