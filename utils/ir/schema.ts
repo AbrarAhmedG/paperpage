@@ -11,6 +11,8 @@ export const SECTION_ROLES = [
   'nav', 'hero', 'features', 'gallery', 'cta', 'text', 'footer',
 ] as const;
 
+export const SECTION_BACKGROUNDS = ['default', 'surface', 'primary', 'gradient', 'dark'] as const;
+
 export const ELEMENT_TYPES = [
   'heading', 'paragraph', 'button', 'image', 'list', 'input', 'logo', 'divider',
 ] as const;
@@ -78,14 +80,26 @@ const elementSchema = z.object({
   items: z.array(z.string().max(200)).max(20).optional().catch(undefined),
   placeholder: z.string().max(120).optional(),
   alt: z.string().max(200).optional(),
+  // Explicit CSS-grid placement (1-indexed). Clamped to the section's column
+  // count by the renderer; here we only coerce to a positive int, dropping junk.
+  col: z.coerce.number().int().min(1).optional().catch(undefined),
+  colSpan: z.coerce.number().int().min(1).optional().catch(undefined),
+  row: z.coerce.number().int().min(1).optional().catch(undefined),
+  rowSpan: z.coerce.number().int().min(1).optional().catch(undefined),
 });
+
+// Unknown/missing background -> 'default'. Case-insensitive.
+const sectionBackground = z
+  .preprocess((v) => (v == null ? 'default' : String(v).toLowerCase()), z.enum(SECTION_BACKGROUNDS))
+  .catch('default');
 
 const sectionSchema = z.object({
   id: z.string().min(1).max(64).catch('section'),
   role: sectionRole,
+  background: sectionBackground,
   layout: z
     .object({
-      columns: z.coerce.number().int().min(1).max(4).catch(1),
+      columns: z.coerce.number().int().min(1).max(12).catch(1),
       align: z.enum(['start', 'center', 'end']).catch('start'),
     })
     .catch({ columns: 1, align: 'start' }),

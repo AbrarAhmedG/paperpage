@@ -72,4 +72,61 @@ describe('pageIRSchema', () => {
     expect(ok.ok).toBe(true);
     if (ok.ok) expect(ok.ir.sections[0].role).toBe('nav');
   });
+
+  function withElement(extra: Record<string, unknown>) {
+    const ir = JSON.parse(JSON.stringify(validIR));
+    ir.sections[0].layout.columns = 2;
+    ir.sections[0].elements = [{ type: 'image', ...extra }];
+    return ir;
+  }
+
+  it('coerces and keeps grid coordinates on elements', () => {
+    const r = validateIR(withElement({ col: '2', colSpan: '2', row: 1, rowSpan: '1' }));
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      const el = r.ir.sections[0].elements[0];
+      expect(el.col).toBe(2);
+      expect(el.colSpan).toBe(2);
+      expect(el.row).toBe(1);
+      expect(el.rowSpan).toBe(1);
+    }
+  });
+
+  it('drops invalid grid coordinates rather than failing', () => {
+    const r = validateIR(withElement({ col: 'left', colSpan: 0 }));
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      const el = r.ir.sections[0].elements[0];
+      expect(el.col).toBeUndefined();
+      expect(el.colSpan).toBeUndefined();
+    }
+  });
+
+  it('accepts up to 12 columns and clamps out-of-range values', () => {
+    const twelve = JSON.parse(JSON.stringify(validIR));
+    twelve.sections[0].layout.columns = 12;
+    expect(validateIR(twelve).ok).toBe(true);
+
+    const tooMany = JSON.parse(JSON.stringify(validIR));
+    tooMany.sections[0].layout.columns = 99;
+    const r = validateIR(tooMany);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.ir.sections[0].layout.columns).toBe(1); // out-of-range -> catch default
+  });
+
+  it('salvages an unknown section background to default', () => {
+    const ir = JSON.parse(JSON.stringify(validIR));
+    ir.sections[0].background = 'neon';
+    const r = validateIR(ir);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.ir.sections[0].background).toBe('default');
+  });
+
+  it('keeps a known section background and lowercases it', () => {
+    const ir = JSON.parse(JSON.stringify(validIR));
+    ir.sections[0].background = 'GRADIENT';
+    const r = validateIR(ir);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.ir.sections[0].background).toBe('gradient');
+  });
 });
