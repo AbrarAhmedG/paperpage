@@ -136,4 +136,10 @@ describe('renderPage', () => {
     expect(html).toContain('<li>'); // list has placeholder items
     expect(html.toLowerCase()).not.toContain('<script'); // still safe
   });
+
+  it('emits modern styling hooks (card shadow + button hover)', () => {
+    const { css } = renderPage(ir);
+    expect(css).toContain('.pp-button:hover');
+    expect(css).toContain('box-shadow');
+  });
 });

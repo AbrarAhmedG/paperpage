@@ -131,22 +131,28 @@ export function renderPage(ir: PageIR): { html: string; css: string } {
 }
 
 * { box-sizing: border-box; }
-.pp-page { margin: 0; background: var(--pp-background); color: var(--pp-text); font-family: var(--pp-font-body); line-height: 1.6; }
+.pp-page { margin: 0; background: var(--pp-background); color: var(--pp-text); font-family: var(--pp-font-body); font-size: 1.0625rem; line-height: 1.65; -webkit-font-smoothing: antialiased; }
 .pp-section { padding: var(--pp-space) 1.5rem; }
 .pp-container { display: grid; grid-template-columns: repeat(var(--pp-cols), 1fr); gap: 1.5rem; max-width: 1100px; margin: 0 auto; align-items: start; }
 .pp-cell { min-width: 0; }
 .pp-hero { text-align: center; }
-.pp-heading { font-family: var(--pp-font-heading); font-weight: 700; margin: 0 0 1rem; }
-.pp-paragraph { margin: 0 0 1rem; }
-.pp-button { display: inline-block; padding: 0.75rem 1.5rem; border-radius: 0.75rem; text-decoration: none; font-weight: 600; }
+.pp-heading { font-family: var(--pp-font-heading); font-weight: 700; line-height: 1.15; letter-spacing: -0.02em; margin: 0 0 1rem; }
+h1.pp-heading { font-size: clamp(2rem, 5vw, 3.25rem); }
+h2.pp-heading { font-size: clamp(1.5rem, 3vw, 2.25rem); }
+h3.pp-heading { font-size: 1.35rem; }
+h4.pp-heading { font-size: 1.1rem; }
+.pp-paragraph { margin: 0 0 1rem; max-width: 65ch; }
+.pp-button { display: inline-block; padding: 0.8rem 1.6rem; border-radius: 0.75rem; text-decoration: none; font-weight: 600; box-shadow: 0 2px 8px rgba(2, 6, 23, 0.08); transition: transform 0.12s ease, box-shadow 0.12s ease; }
+.pp-button:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(2, 6, 23, 0.16); }
 .pp-button--primary { background: var(--pp-primary); color: #fff; }
 .pp-button--secondary { background: var(--pp-secondary); color: var(--pp-text); }
-.pp-button--ghost { background: transparent; border: 1px solid var(--pp-primary); color: var(--pp-primary); }
-.pp-image { max-width: 100%; height: auto; border-radius: 0.75rem; display: block; }
+.pp-button--ghost { background: transparent; border: 1px solid var(--pp-primary); color: var(--pp-primary); box-shadow: none; }
+.pp-image { width: 100%; height: auto; border-radius: 0.9rem; display: block; object-fit: cover; box-shadow: 0 6px 24px rgba(2, 6, 23, 0.10); }
 .pp-list { padding-left: 1.25rem; }
-.pp-input { width: 100%; padding: 0.75rem 1rem; border: 1px solid #cbd5e1; border-radius: 0.5rem; }
-.pp-logo { font-family: var(--pp-font-heading); font-weight: 700; font-size: 1.25rem; }
-.pp-divider { border: none; border-top: 1px solid #e2e8f0; margin: 1.5rem 0; }
+.pp-list li { margin: 0.35rem 0; }
+.pp-input { width: 100%; padding: 0.8rem 1rem; border: 1px solid #cbd5e1; border-radius: 0.6rem; font: inherit; }
+.pp-logo { font-family: var(--pp-font-heading); font-weight: 800; font-size: 1.3rem; letter-spacing: -0.01em; }
+.pp-divider { border: none; border-top: 1px solid rgba(100, 116, 139, 0.25); margin: 1.5rem 0; }
 .pp-footer { font-size: 0.9rem; }
 
 /* Section background variants (visual rhythm) */
