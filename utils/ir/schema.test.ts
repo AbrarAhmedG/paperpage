@@ -50,4 +50,26 @@ describe('pageIRSchema', () => {
     const bad = { ...validIR, sections: [] };
     expect(validateIR(bad).ok).toBe(false);
   });
+
+  it('salvages off-label element types instead of failing the whole IR', () => {
+    const ir = JSON.parse(JSON.stringify(validIR));
+    ir.sections[0].elements = [
+      { type: 'text', text: 'a' }, // -> paragraph
+      { type: 'link', text: 'b' }, // -> button
+      { type: 'zzz', text: 'c' }, // unknown -> paragraph fallback
+    ];
+    const r = validateIR(ir);
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.ir.sections[0].elements.map((e) => e.type)).toEqual(['paragraph', 'button', 'paragraph']);
+    }
+  });
+
+  it('maps section-role synonyms to canonical roles but still rejects truly unknown roles', () => {
+    const withSynonym = JSON.parse(JSON.stringify(validIR));
+    withSynonym.sections[0].role = 'navbar'; // -> nav
+    const ok = validateIR(withSynonym);
+    expect(ok.ok).toBe(true);
+    if (ok.ok) expect(ok.ir.sections[0].role).toBe('nav');
+  });
 });
