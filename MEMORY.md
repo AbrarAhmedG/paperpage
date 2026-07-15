@@ -151,3 +151,53 @@ Production/Vercel is unaffected — the production build compiles all routes cle
 - **Groq:** free vision API (key in `.env.local` as `AI_API_KEY`).
 - **Gemini:** created but NOT used (no free tier / requires billing).
 - Secret values live ONLY in `.env.local` (gitignored) — never commit them.
+
+---
+
+## SESSION 2 (2026-07-15) — quality, security, editor, journey
+
+Continued from `c87d67a`; all work committed + pushed to `origin/master` (**HEAD `653be51`**).
+**40/40 unit tests, clean production build.** AI provider switched to **Claude** (`AI_PROVIDER=anthropic`,
+`AI_MODEL=claude-sonnet-5`, ~1¢/sketch) via the official `@anthropic-ai/sdk` in `lib/gemini.ts`;
+free Groq (OpenAI-compatible) remains the default fallback when `AI_PROVIDER` is unset.
+
+### What shipped (22 commits, `66c42df`..`653be51`)
+1. **Fidelity** — OpenAI-compatible JSON mode + prompt rework; fixed the double-encoded image
+   placeholder that rendered as a **black box**.
+2. **Claude provider** — real Anthropic SDK Messages API with vision (not an OpenAI shim);
+   requires an Anthropic API key (console.anthropic.com — NOT a claude.ai subscription).
+3. **2D-grid layout + attractive rendering** — elements carry `col/colSpan/row/rowSpan`, columns
+   1–12, section `background`. Renderer groups consecutive same-column elements into stacked cells
+   (**fixes overlap/"broken"**), horizontal nav bar, gradient placeholders, auto color rhythm by
+   role, gradient buttons, scroll/entrance animations (`animation-timeline: view()`, reduced-motion
+   safe), professional CSS. Spec+plan in `docs/superpowers/{specs,plans}/2026-07-15-*`.
+4. **Detail capture** — added `tabs` and `video` element types (+ aliases); prompt now captures
+   every component exhaustively and **invents labels** for unlabeled buttons/tabs/links.
+5. **Alignment fix** — renderer honors `data-align` (center/end) on cells/buttons/tabs (was ignored).
+6. **Editor** — categorized blocks (Layout/Content/Sections), plugins (grapesjs-blocks-basic,
+   -plugin-forms, -plugin-export code-view), modern **dark theme** (`components/studio/editor-theme.css`),
+   Tabs/Video blocks, undo/redo, Tablet device.
+7. **Security** — API routes now return generic errors via `lib/apiError.ts` (no raw Supabase
+   messages); added `WITH CHECK` to the `projects`/`profiles` UPDATE RLS policies. Migration
+   `supabase/migrations/0005_rls_with_check.sql` — **APPLIED to the DB by the operator**.
+8. **Auth journey** — landing is an auth-aware server component (smart "Start" → dashboard if
+   logged in, else `/login` which has Sign-up); guard bounces logged-in users off `/login|/signup`
+   and preserves `?next=`; richer home page (nav, how-it-works, features, footer); back-to-home on
+   auth screens.
+9. **Housekeeping** — `middleware.ts` → `proxy.ts` (Next 16), dropped unused `@google/generative-ai`,
+   un-tracked `.claude/settings.local.json`.
+
+### QA (this session, automated — all passed)
+Route/guard matrix; landing content; **real-Claude generation output assertions** (grid, alignment,
+gradient placeholder/button, animations, color rhythm, safe HTML — 12/12); **live Supabase auth+RLS**
+(tenant isolation + **WITH CHECK owner-reassign blocked, error `42501`**). Two throwaway QA users
+`paperpage-qa-a@example.com` / `paperpage-qa-b@example.com` were created — delete in Supabase if desired.
+
+### NOT verified (no browser automation available)
+GrapesJS editor interactions, rendered visuals (colors/animations), client-side `.zip` export standalone.
+
+### Ops gotcha learned
+Stopping a server's npm wrapper can leave the child `next` process **holding the port** → EADDRINUSE
+and an **old build keeps serving** (this caused a `/dashboard`→`/login` 404 on a stale `:3000`). Free
+the port with `Get-NetTCPConnection -LocalPort N -State Listen | %{ Stop-Process -Id $_.OwningProcess -Force }`,
+then run ONE fresh `npm run build && npm start`. Turbopack dev stays flaky on the E: drive.
