@@ -21,7 +21,7 @@ READ THESE FIRST (don't re-derive):
 - docs/superpowers/specs/ and docs/superpowers/plans/ — the approved specs + TDD plans
   (2026-07-14 sketch-to-site, 2026-07-15 2D-layout-attractive-rendering).
 
-CURRENT STATE (all committed + pushed to origin/master, HEAD 653be51):
+CURRENT STATE (all committed + pushed to origin/master, HEAD b0ddebe):
 - 40/40 unit tests pass; clean production build.
 - Full automated QA passed this session: route/guard matrix, real-Claude generation output
   assertions, and a LIVE Supabase auth+RLS check (tenant isolation + the WITH CHECK owner-

@@ -156,7 +156,7 @@ Production/Vercel is unaffected — the production build compiles all routes cle
 
 ## SESSION 2 (2026-07-15) — quality, security, editor, journey
 
-Continued from `c87d67a`; all work committed + pushed to `origin/master` (**HEAD `653be51`**).
+Continued from `c87d67a`; all work committed + pushed to `origin/master` (**HEAD `b0ddebe`**, docs at `9e…`).
 **40/40 unit tests, clean production build.** AI provider switched to **Claude** (`AI_PROVIDER=anthropic`,
 `AI_MODEL=claude-sonnet-5`, ~1¢/sketch) via the official `@anthropic-ai/sdk` in `lib/gemini.ts`;
 free Groq (OpenAI-compatible) remains the default fallback when `AI_PROVIDER` is unset.
