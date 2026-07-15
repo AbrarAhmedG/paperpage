@@ -58,6 +58,16 @@ describe('renderPage', () => {
     expect(html).toContain('alt="Hero shot"');
   });
 
+  it('placeholder SVG has valid (not double-encoded) hex fills — regression: black box', () => {
+    const { html } = renderPage(ir);
+    const src = html.match(/src="(data:image\/svg\+xml[^"]*)"/)?.[1] ?? '';
+    // Must not contain a double-encoded '#': %2523 decodes to the literal "%23", an invalid fill.
+    expect(src).not.toContain('%2523');
+    const decoded = decodeURIComponent(src.replace('data:image/svg+xml;utf8,', ''));
+    expect(decoded).toContain('fill="#e2e8f0"');
+    expect(decoded).not.toContain('fill="%23');
+  });
+
   it('emits CSS custom properties from the palette', () => {
     const { css } = renderPage(ir);
     expect(css).toContain('--pp-primary: #14b8a6');

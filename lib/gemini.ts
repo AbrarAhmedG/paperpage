@@ -41,11 +41,13 @@ Return ONLY a single JSON object (no markdown, no commentary) with EXACTLY this 
 Allowed fonts (use these EXACT names only, for both heading and body): ${CURATED_FONTS.join(', ')}.
 
 Rules:
+- Transcribe what is ACTUALLY DRAWN. Do NOT invent marketing copy, feature lists, or sections that are not in the sketch. If a box is labeled (e.g. "AD 300x100", "CHAT BOX", "LOGO"), use that label.
+- Every section object MUST include an "elements" array with at least one element. Never omit the "elements" key.
 - Infer each section's role from the drawing; order sections top-to-bottom exactly as drawn.
-- Every section must have at least one element.
-- All palette colors MUST be 6-digit hex like "#14b8a6". Use a clean, modern palette with a light background.
+- Map drawn regions to the closest element type: a picture/video/media box -> "image"; a labeled ad/banner slot -> "image" (put its label in "alt"); an input/search field -> "input"; a menu or bullet list -> "list"; a block of body text or a labeled placeholder box -> "paragraph".
+- All palette colors MUST be 6-digit hex like "#14b8a6". Use a clean, modern palette with a light background (do NOT use pure black #000000 as primary unless clearly drawn that way).
 - The main title is a heading with "level": 1. Buttons use "type": "button" with short "text".
-- Fill in short, sensible placeholder copy where the handwriting is unclear.
+- Only add short placeholder copy where the handwriting is genuinely unclear; otherwise leave "text" empty rather than inventing content.
 - Use "normal" spacing unless the sketch is clearly dense (compact) or airy (roomy).
 - Output the JSON object only.`;
 
@@ -78,6 +80,10 @@ export async function callGeminiVision(image: { data: string; mimeType: string }
     body: JSON.stringify({
       model,
       temperature: 0.2,
+      // Force valid JSON output. Without this, the model intermittently emits
+      // malformed JSON (e.g. a section missing its "elements" key), which throws
+      // in JSON.parse and silently degrades the result via the route's retry.
+      response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: PROMPT },
         {

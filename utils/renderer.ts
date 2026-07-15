@@ -11,10 +11,13 @@ function esc(s: string | undefined): string {
 }
 
 // Neutral inline SVG placeholder — no external request, safe by construction.
+// Use raw '#' hex colors here: encodeURIComponent encodes each '#' to %23 exactly
+// once. (Pre-encoding to %23 would be double-encoded to %2523, which decodes to the
+// literal string "%23e2e8f0" — an invalid SVG fill that renders as a solid black box.)
 const PLACEHOLDER =
   'data:image/svg+xml;utf8,' +
   encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450"><rect width="100%" height="100%" fill="%23e2e8f0"/><text x="50%" y="50%" fill="%2394a3b8" font-family="sans-serif" font-size="24" text-anchor="middle" dominant-baseline="middle">Image</text></svg>',
+    '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450"><rect width="100%" height="100%" fill="#e2e8f0"/><text x="50%" y="50%" fill="#94a3b8" font-family="sans-serif" font-size="24" text-anchor="middle" dominant-baseline="middle">Image</text></svg>',
   );
 
 function renderElement(el: Element): string {
