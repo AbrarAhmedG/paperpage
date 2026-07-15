@@ -31,10 +31,22 @@ export async function updateSession(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
   const isProtected = PROTECTED.some((p) => path === p || path.startsWith(p + '/'));
+  const isAuthPage = path === '/login' || path === '/signup';
 
+  // Unauthenticated → keep them out of protected areas (remember where they were
+  // headed so we can send them back after login).
   if (isProtected && !user) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
+    url.searchParams.set('next', path);
+    return NextResponse.redirect(url);
+  }
+
+  // Authenticated → no reason to see the login/signup screens; send to dashboard.
+  if (isAuthPage && user) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/dashboard';
+    url.search = '';
     return NextResponse.redirect(url);
   }
 

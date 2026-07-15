@@ -28,13 +28,20 @@ export default function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
       setError(error.message);
       return;
     }
-    router.push('/dashboard');
+    // Return the user to where they were headed (?next=/studio/…), else dashboard.
+    // Only same-origin internal paths are honored.
+    const next = new URLSearchParams(window.location.search).get('next');
+    const dest = next && next.startsWith('/') && !next.startsWith('//') ? next : '/dashboard';
+    router.push(dest);
     router.refresh();
   }
 
   return (
     <main className="relative min-h-screen bg-slate-50 overflow-hidden text-slate-800 flex items-center justify-center px-6">
       <div className="absolute inset-0 bg-aurora-gradient z-0 pointer-events-none" />
+      <Link href="/" className="absolute top-6 left-6 z-10 text-lg font-extrabold tracking-tight hover:opacity-80">
+        Paper<span className="text-mint-500">Page</span>
+      </Link>
       <form
         onSubmit={onSubmit}
         className="relative z-10 w-full max-w-md p-8 rounded-2xl bg-surface backdrop-blur-xl border border-border shadow-glass"
