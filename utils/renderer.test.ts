@@ -200,6 +200,13 @@ describe('renderPage', () => {
     expect(css).toContain('box-shadow');
   });
 
+  it('honors section alignment (center/end) for cells and buttons', () => {
+    const { css } = renderPage(ir);
+    expect(css).toContain('[data-align="center"] .pp-cell');
+    expect(css).toContain('[data-align="center"] .pp-button');
+    expect(css).toContain('[data-align="end"] .pp-cell');
+  });
+
   it('groups consecutive same-column elements into one cell (prevents overlap)', () => {
     const g: PageIR = {
       ...ir,

@@ -191,6 +191,10 @@ img { max-width: 100%; }
 .pp-section { padding: var(--pp-space) 1.5rem; }
 .pp-container { display: grid; grid-template-columns: repeat(var(--pp-cols), 1fr); gap: 1.75rem; max-width: 1140px; margin: 0 auto; align-items: start; }
 .pp-cell { min-width: 0; display: flex; flex-direction: column; gap: 0.6rem; }
+/* Alignment — honor the IR's per-section align on cell contents. */
+.pp-section[data-align="center"] .pp-cell { align-items: center; text-align: center; }
+.pp-section[data-align="end"] .pp-cell { align-items: flex-end; text-align: right; }
+.pp-hero .pp-cell { align-items: center; text-align: center; }
 
 /* Typography */
 .pp-heading { font-family: var(--pp-font-heading); font-weight: 800; line-height: 1.12; letter-spacing: -0.02em; margin: 0 0 0.4rem; }
@@ -206,6 +210,11 @@ h4.pp-heading { font-size: 1rem; text-transform: uppercase; letter-spacing: 0.06
 .pp-button--primary { background: linear-gradient(135deg, var(--pp-primary), color-mix(in srgb, var(--pp-primary) 55%, var(--pp-secondary))); color: #fff; }
 .pp-button--secondary { background: var(--pp-secondary); color: var(--pp-text); box-shadow: 0 8px 18px color-mix(in srgb, var(--pp-secondary) 32%, transparent); }
 .pp-button--ghost { background: transparent; color: var(--pp-primary); border: 2px solid color-mix(in srgb, var(--pp-primary) 40%, transparent); box-shadow: none; }
+/* Buttons & tabs follow the section alignment (align-self overrides the cell's align-items). */
+.pp-section[data-align="center"] .pp-button, .pp-hero .pp-button { align-self: center; }
+.pp-section[data-align="end"] .pp-button { align-self: flex-end; }
+.pp-section[data-align="center"] .pp-tabs, .pp-hero .pp-tabs { justify-content: center; }
+.pp-section[data-align="end"] .pp-tabs { justify-content: flex-end; }
 
 /* Media, lists, inputs */
 .pp-image { width: 100%; height: auto; min-height: 120px; border-radius: var(--pp-radius); display: block; object-fit: cover; box-shadow: var(--pp-shadow); transition: transform 0.35s ease; }
