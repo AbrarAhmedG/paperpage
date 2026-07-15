@@ -47,7 +47,13 @@ export default function Uploader({
   return (
     <div className="max-w-xl mx-auto py-16">
       <h1 className="text-3xl font-extrabold mb-2">Upload your sketch</h1>
-      <p className="text-slate-500 mb-8">Photograph a hand-drawn page layout, then generate your site.</p>
+      <p className="text-slate-600 mb-3">
+        Upload a photo or scan of a hand-drawn <strong>web-page layout</strong> — boxes for sections,
+        lines for text, and labels like &ldquo;nav&rdquo;, &ldquo;hero&rdquo;, &ldquo;AD&rdquo;, &ldquo;footer&rdquo;.
+      </p>
+      <p className="text-slate-500 text-sm mb-8">
+        Tips: good lighting, high contrast, one page, legible labels. Clearer sketches produce better results.
+      </p>
 
       <div
         onDragOver={(e) => e.preventDefault()}
