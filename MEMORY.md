@@ -90,15 +90,29 @@ Key files: `lib/supabase/{client,server,middleware}.ts`, `lib/gemini.ts`, `middl
 
 ---
 
-## 6. Current state
+## 6. Current state (updated after full E2E, 2026-07-15)
 
-- All 24 plan tasks implemented + committed; on GitHub `master` (and `feature/sketch-to-site-v1`).
-  Latest commits include the Groq swap (`2a9839d`) and model config (`5294b6b`).
-- Build passes, 19/19 unit tests pass.
-- Groq vision call **verified working** at the API level.
-- Dev server smoke test **passed** (routing, middleware, auth guards).
-- **Not yet confirmed:** a full in-browser signup → create → upload → **Generate** → edit → export
-  run by the user (the last live step). AI side is proven; remaining is the user driving the UI.
+- All plan tasks implemented + committed; on GitHub `master`.
+- Clean **production build passes**; **21/21 unit tests pass**.
+- **Full backend E2E: 23/23 passed** against the production build (`next build && next start`), driving
+  real API routes with a real Supabase session: auth+RLS, create project, **generate (sketch → Groq →
+  IR → render → persist, 200, 4-section page)**, persistence, autosave (PATCH), asset upload + signed
+  URL, delete cleanup. Auth, RLS, Storage, Groq, the IR schema, and the renderer are all verified working.
+- **Schema resilience fix (`04c8b01`):** generation was 422ing because the free Groq model emitted
+  element types outside the strict enum. `utils/ir/schema.ts` now salvages off-label element types
+  (alias map + `paragraph` fallback), maps role synonyms, coerces variant/align/level/columns/spacing,
+  and expands shorthand hex — while still rejecting truly-unknown roles / non-hex colors (tests intact).
+- **Still UI-manual (not in the E2E):** the GrapesJS editor interactions and the client-side `.zip`
+  export (browser-only). Export bundle logic is unit-tested (3/3) and the generated HTML is verified.
+
+### ⚠️ Turbopack DEV is flaky on this machine
+`next dev` (Turbopack) intermittently 404s API routes here — Next warns "**Slow filesystem detected**"
+because the project is on the `E:` drive, and Turbopack's on-demand compile + cache corrupts under that.
+Symptoms: routes 404 that clearly exist; "unexpected Turbopack error"; corrupted `.next/dev/types`.
+Workarounds: (a) for reliable local runs use **`npm run build && npm run start`** (production mode
+pre-compiles everything — this is what the passing E2E used); (b) if dev misbehaves, stop it,
+`rm -rf .next`, restart; (c) ideally move the project to a fast local drive (e.g. `C:`).
+Production/Vercel is unaffected — the production build compiles all routes cleanly.
 
 ---
 
