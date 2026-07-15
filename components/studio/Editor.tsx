@@ -25,6 +25,10 @@ export default function Editor({
     (async () => {
       const grapesjs = (await import('grapesjs')).default;
       await import('grapesjs/dist/css/grapes.min.css');
+      await import('./editor-theme.css');
+      const blocksBasic = (await import('grapesjs-blocks-basic')).default;
+      const pluginForms = (await import('grapesjs-plugin-forms')).default;
+      const pluginExport = (await import('grapesjs-plugin-export')).default;
       if (disposed || !containerRef.current) return;
 
       const fontOptions = CURATED_FONTS.map((f) => ({ id: f, label: f, value: `'${f}', sans-serif` }));
@@ -36,6 +40,12 @@ export default function Editor({
         storageManager: false, // app owns persistence
         components: html,
         style: css,
+        // Wrap plugins so options are passed inline (avoids pluginsOpts keying).
+        plugins: [
+          (e: any) => blocksBasic(e, { flexGrid: true, category: 'Basic' }),
+          (e: any) => pluginForms(e, {}),
+          (e: any) => pluginExport(e, {}),
+        ],
         assetManager: {
           upload: false, // we handle uploads via custom logic below
           autoAdd: true,
