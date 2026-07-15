@@ -60,8 +60,16 @@ describe('renderPage', () => {
     expect(html).toContain('alt="Hero shot"');
   });
 
+  // A text section keeps the mesh placeholder (hero/gallery use curated photos).
+  const meshIr: PageIR = {
+    ...ir,
+    sections: [
+      { id: 'm', role: 'text', background: 'default', layout: { columns: 1, align: 'start' }, elements: [{ type: 'image', alt: 'Diagram' }] },
+    ],
+  };
+
   it('placeholder is a palette gradient with valid (not double-encoded) hex — regression: black box', () => {
-    const { html } = renderPage(ir);
+    const { html } = renderPage(meshIr);
     const src = html.match(/src="(data:image\/svg\+xml[^"]*)"/)?.[1] ?? '';
     // Must not contain a double-encoded '#': %2523 decodes to the literal "%23", an invalid color.
     expect(src).not.toContain('%2523');
@@ -270,12 +278,37 @@ describe('renderPage', () => {
   });
 
   it('placeholder is a layered mesh (radial spots) with a media glyph', () => {
-    const { html } = renderPage(ir);
+    const { html } = renderPage(meshIr);
     const src = html.match(/src="(data:image\/svg\+xml[^"]*)"/)?.[1] ?? '';
     const decoded = decodeURIComponent(src.replace('data:image/svg+xml;utf8,', ''));
     expect(decoded).toContain('radialGradient'); // mesh spots (not a flat 2-stop box)
     expect(decoded).toContain('stroke="#ffffff"'); // the soft image glyph
     expect(decoded).not.toContain('%2523'); // still not double-encoded
+  });
+
+  it('uses curated photographs for hero and gallery images (bundled offline on export)', () => {
+    const p: PageIR = {
+      ...ir,
+      sections: [
+        { id: 'h', role: 'hero', background: 'gradient', layout: { columns: 1, align: 'center' }, elements: [{ type: 'image', alt: 'Hero' }] },
+        { id: 'g', role: 'gallery', background: 'default', layout: { columns: 2, align: 'start' }, elements: [
+          { type: 'image', alt: 'One', col: 1 },
+          { type: 'image', alt: 'Two', col: 2 },
+        ] },
+      ],
+    };
+    const { html } = renderPage(p);
+    const photos = html.match(/src="https:\/\/images\.unsplash\.com[^"]+"/g) || [];
+    expect(photos.length).toBe(3); // one hero + two gallery
+    expect(new Set(photos).size).toBe(3); // rotates — no repeats across the page
+    expect(html).toContain('data-pp-asset="1"'); // still replaceable in the editor
+    expect(html.toLowerCase()).not.toContain('<script'); // safe by construction
+  });
+
+  it('keeps mesh placeholders (no external URLs) for non-hero/gallery images', () => {
+    const { html } = renderPage(meshIr); // a text-section image
+    expect(html).not.toContain('images.unsplash.com');
+    expect(html).toContain('data:image/svg+xml');
   });
 
   it('wraps CTA content in an inset gradient panel', () => {

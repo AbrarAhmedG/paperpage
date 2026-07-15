@@ -61,6 +61,29 @@ const MESH_VARIANTS: Array<{ p: [number, number]; s: [number, number]; angle: [n
   { p: [0.28, 0.86], s: [0.8, 0.1], angle: [0, 1, 1, 0] },
 ];
 
+// Curated, allowlisted photographic library for hero/gallery media slots. Every
+// URL was verified live (HTTP 200 + `Access-Control-Allow-Origin: *`), so the
+// client-side exporter can fetch and bundle them into the offline .zip via the
+// existing asset pipeline. These are hardcoded here and NEVER model-supplied —
+// generated pages stay free of untrusted URLs. Other image slots keep the mesh
+// placeholder, which also backs a photo while it loads / if it ever fails.
+const CURATED_PHOTOS = [
+  'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1200&q=80',
+  'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80',
+  'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=1200&q=80',
+  'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=1200&q=80',
+  'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80',
+  'https://images.unsplash.com/photo-1600880292203-757bb62b4baf?auto=format&fit=crop&w=1200&q=80',
+  'https://images.unsplash.com/photo-1557682250-33bd709cbe85?auto=format&fit=crop&w=1200&q=80',
+  'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=1200&q=80',
+  'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1200&q=80',
+  'https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1200&q=80',
+  'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1200&q=80',
+  'https://images.unsplash.com/photo-1531973576160-7125cd663d86?auto=format&fit=crop&w=1200&q=80',
+  'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1200&q=80',
+  'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1200&q=80',
+];
+
 function placeholderSvg(primary: string, secondary: string, variant: number): string {
   const v = MESH_VARIANTS[variant % MESH_VARIANTS.length];
   const base = mix(primary, '#0b1020', 0.62);
@@ -116,9 +139,9 @@ const HEADING_PLACEHOLDER: Record<number, string> = {
 };
 const LIST_PLACEHOLDER = ['First item', 'Second item', 'Third item'];
 
-type RenderCtx = { primary: string; secondary: string; img: { v: number } };
+type RenderCtx = { primary: string; secondary: string; img: { v: number }; photo: { v: number } };
 
-function renderElement(el: Element, ctx: RenderCtx): string {
+function renderElement(el: Element, ctx: RenderCtx, role: Section['role']): string {
   switch (el.type) {
     case 'heading': {
       const lvl = Math.min(Math.max(el.level ?? 2, 1), 4);
@@ -135,6 +158,13 @@ function renderElement(el: Element, ctx: RenderCtx): string {
       return `<a class="pp-button pp-button--${v}" href="#">${label}${tail}</a>`;
     }
     case 'image': {
+      // Hero & gallery slots get a curated photograph; everything else gets the
+      // palette-mesh placeholder. Both stay replaceable (data-pp-asset) and both
+      // bundle offline on export.
+      if (role === 'hero' || role === 'gallery') {
+        const src = CURATED_PHOTOS[ctx.photo.v++ % CURATED_PHOTOS.length];
+        return `<img class="pp-image" data-pp-asset="1" src="${src}" alt="${esc(el.alt)}" loading="lazy" />`;
+      }
       const ph = placeholderSvg(ctx.primary, ctx.secondary, ctx.img.v++);
       return `<img class="pp-image" data-pp-asset="1" src="${ph}" alt="${esc(el.alt)}" />`;
     }
@@ -199,7 +229,7 @@ function renderSection(section: Section, ctx: RenderCtx, index: number): string 
   let featureIdx = 0;
   const cells = groups
     .map((g) => {
-      const inner = g.els.map((e) => renderElement(e, ctx)).join('\n        ');
+      const inner = g.els.map((e) => renderElement(e, ctx, section.role)).join('\n        ');
       // Feature cards without their own image get a leading themed icon tile.
       let lead = '';
       if (section.role === 'features' && !g.els.some((e) => e.type === 'image')) {
@@ -227,7 +257,7 @@ const SPACING_SCALE: Record<PageIR['theme']['spacing'], string> = {
 
 export function renderPage(ir: PageIR): { html: string; css: string } {
   const { theme } = ir;
-  const ctx: RenderCtx = { primary: theme.palette.primary, secondary: theme.palette.secondary, img: { v: 0 } };
+  const ctx: RenderCtx = { primary: theme.palette.primary, secondary: theme.palette.secondary, img: { v: 0 }, photo: { v: 0 } };
   const sections = ir.sections.map((s, i) => renderSection(s, ctx, i)).join('\n');
   const html = `<body class="pp-page">\n${sections}\n</body>`;
 
@@ -296,7 +326,7 @@ h3.pp-heading { font-size: 1.28rem; }
 .pp-icon svg { width: 23px; height: 23px; }
 
 /* Media, lists, inputs */
-.pp-image { width: 100%; height: auto; aspect-ratio: 4 / 3; border-radius: var(--pp-radius); display: block; object-fit: cover; box-shadow: var(--pp-shadow); border: 1px solid var(--pp-border); transition: transform 0.35s ease; }
+.pp-image { width: 100%; height: auto; aspect-ratio: 4 / 3; border-radius: var(--pp-radius); display: block; object-fit: cover; box-shadow: var(--pp-shadow); border: 1px solid var(--pp-border); transition: transform 0.35s ease; background: linear-gradient(135deg, color-mix(in srgb, var(--pp-primary) 70%, #0b1020), color-mix(in srgb, var(--pp-secondary) 45%, #0b1020)); }
 .pp-features .pp-cell:hover .pp-image, .pp-gallery .pp-cell:hover .pp-image { transform: scale(1.025); }
 .pp-list { margin: 0; padding-left: 1.15rem; }
 .pp-list li { margin: 0.35rem 0; }

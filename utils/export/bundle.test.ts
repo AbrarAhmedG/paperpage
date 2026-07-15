@@ -13,6 +13,12 @@ describe('extractAssetUrls', () => {
     expect(urls).toContain('https://x.supabase.co/storage/v1/object/sign/assets/b.jpg?token=2');
     expect(urls.some((u) => u.startsWith('data:'))).toBe(false);
   });
+
+  it('collects curated photo URLs (with query strings) so they bundle offline', () => {
+    const photo = 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1200&q=80';
+    const urls = extractAssetUrls(`<img src="${photo}" />`, '');
+    expect(urls).toContain(photo); // full URL incl. query captured, stops at the quote
+  });
 });
 
 describe('buildFilenameMap', () => {

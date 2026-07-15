@@ -40,7 +40,7 @@ The highest-value, highest-risk piece. **One-way render:** the IR generates the 
 2. **Store** — `sharp` downscales it (≤1600px, JPEG); saved to Storage at `sketches/{user_id}/{projectId}/original.jpg`.
 3. **Interpret** — `lib/gemini.ts` calls Gemini Vision with a strict JSON `responseSchema` (mirrors the Zod schema, low temperature) → raw Layout IR.
 4. **Validate** — `utils/ir/schema.ts` `validateIR()` (Zod). Invalid → one automatic retry → `422`.
-5. **Render** — `utils/renderer.ts` `renderPage(ir)` → `{ html, css }`. Deterministic, **safe by construction** (all text HTML-escaped, no `<script>`, no untrusted URLs — no sanitizer needed).
+5. **Render** — `utils/renderer.ts` `renderPage(ir)` → `{ html, css }`. Deterministic, **safe by construction** (all text HTML-escaped, no `<script>`, no untrusted URLs — no sanitizer needed). Modern-SaaS visual system: curated inline icon set, palette-derived **mesh placeholders**, a **hardcoded curated photo allowlist** (Unsplash) for hero/gallery slots, eyebrow labels, gradient CTA panel, and a responsive grid that collapses 3→2→1. All image URLs are authored in the renderer (never model-supplied), so the no-untrusted-URLs guarantee holds.
 6. **Persist** — `{ sketch_path, ir, html, css }` saved to the `projects` row; returns `{ ir, html, css }`.
 
 ### Layout IR (`utils/ir/schema.ts`)
@@ -89,7 +89,7 @@ Migrations live in `supabase/migrations/` and are applied by the operator (Supab
 - `sketches/{user_id}/{projectId}/…` — original uploads (has select/insert/**update**/delete policies; update is required because the route uploads with `upsert`).
 - `assets/{user_id}/{projectId}/…` — user images placed in pages.
 
-**Portable export:** on export, referenced image URLs are rewritten to relative `./assets/…` paths and the images are bundled into the `.zip`, so an exported site has **zero backend dependency**. In-editor preview uses signed URLs.
+**Portable export:** on export, referenced image URLs are rewritten to relative `./assets/…` paths and the images are bundled into the `.zip`, so an exported site has **zero backend dependency**. This covers both Supabase signed URLs and the renderer's curated hero/gallery photos (an allowlist verified to send permissive CORS, so the client-side exporter can fetch and bundle them). In-editor preview uses signed URLs.
 
 ---
 
