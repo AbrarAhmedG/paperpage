@@ -10,15 +10,44 @@ function esc(s: string | undefined): string {
     .replace(/'/g, '&#39;');
 }
 
-// Neutral inline SVG placeholder — no external request, safe by construction.
-// Use raw '#' hex colors here: encodeURIComponent encodes each '#' to %23 exactly
-// once. (Pre-encoding to %23 would be double-encoded to %2523, which decodes to the
-// literal string "%23e2e8f0" — an invalid SVG fill that renders as a solid black box.)
-const PLACEHOLDER =
-  'data:image/svg+xml;utf8,' +
-  encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450"><rect width="100%" height="100%" fill="#e2e8f0"/><text x="50%" y="50%" fill="#94a3b8" font-family="sans-serif" font-size="24" text-anchor="middle" dominant-baseline="middle">Image</text></svg>',
-  );
+// Colorful inline SVG placeholder — a primary→secondary gradient so empty image
+// slots read as vibrant, on-brand blocks (not grey boxes) until the user drops a
+// real image in. No external request; safe by construction. Palette values are
+// validated 6-digit hex, so they're safe to interpolate. Use raw '#' — encode-
+// URIComponent encodes each '#' to %23 exactly once (double-encoding to %2523
+// would decode to a literal string and render black).
+function placeholderSvg(a: string, b: string): string {
+  const svg =
+    '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500">' +
+    '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">' +
+    `<stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/>` +
+    '</linearGradient></defs>' +
+    '<rect width="100%" height="100%" fill="url(#g)"/>' +
+    '<circle cx="400" cy="250" r="64" fill="#ffffff" fill-opacity="0.28"/>' +
+    '</svg>';
+  return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+}
+
+// Auto color rhythm: honor the model's background when it set one; otherwise pick
+// a lively default by role so pages are never flat white even when the model
+// plays the palette safe. Alternating index tints break up long stacks.
+function effectiveBackground(section: Section, index: number): string {
+  if (section.background && section.background !== 'default') return section.background;
+  switch (section.role) {
+    case 'hero':
+      return 'gradient';
+    case 'footer':
+      return 'dark';
+    case 'cta':
+      return 'primary';
+    case 'features':
+    case 'gallery':
+    case 'text':
+      return index % 2 === 1 ? 'surface' : 'default';
+    default:
+      return 'default';
+  }
+}
 
 // Neutral placeholder copy so empty sketch boxes render as styled, visible
 // headings / body / buttons. Deterministic and static (always escaped), so the
@@ -33,7 +62,7 @@ const HEADING_PLACEHOLDER: Record<number, string> = {
 };
 const LIST_PLACEHOLDER = ['First item', 'Second item', 'Third item'];
 
-function renderElement(el: Element): string {
+function renderElement(el: Element, ph: string): string {
   switch (el.type) {
     case 'heading': {
       const lvl = Math.min(Math.max(el.level ?? 2, 1), 4);
@@ -47,7 +76,7 @@ function renderElement(el: Element): string {
       return `<a class="pp-button pp-button--${v}" href="#">${esc(el.text) || 'Learn More'}</a>`;
     }
     case 'image':
-      return `<img class="pp-image" data-pp-asset="1" src="${PLACEHOLDER}" alt="${esc(el.alt)}" />`;
+      return `<img class="pp-image" data-pp-asset="1" src="${ph}" alt="${esc(el.alt)}" />`;
     case 'list': {
       const src = el.items && el.items.length ? el.items : LIST_PLACEHOLDER;
       const items = src.map((i) => `<li>${esc(i)}</li>`).join('');
@@ -80,9 +109,9 @@ function cellStyle(col: number | undefined, colSpan: number | undefined, columns
   return '';
 }
 
-function renderSection(section: Section): string {
+function renderSection(section: Section, ph: string, index: number): string {
   const cols = section.layout.columns;
-  const bg = section.background ?? 'default';
+  const bg = effectiveBackground(section, index);
   // Group consecutive elements that share a column into ONE stacked cell. This
   // prevents overlap (the model sometimes assigns several elements to the same
   // cell) and keeps a card's contents (icon / title / text / button) together.
@@ -102,7 +131,7 @@ function renderSection(section: Section): string {
     .map(
       (g) =>
         `<div class="pp-cell"${cellStyle(g.col, g.colSpan, cols)}>\n        ${g.els
-          .map(renderElement)
+          .map((e) => renderElement(e, ph))
           .join('\n        ')}\n      </div>`,
     )
     .join('\n      ');
@@ -121,7 +150,8 @@ const SPACING_SCALE: Record<PageIR['theme']['spacing'], string> = {
 
 export function renderPage(ir: PageIR): { html: string; css: string } {
   const { theme } = ir;
-  const sections = ir.sections.map(renderSection).join('\n');
+  const ph = placeholderSvg(theme.palette.primary, theme.palette.secondary);
+  const sections = ir.sections.map((s, i) => renderSection(s, ph, i)).join('\n');
   const html = `<body class="pp-page">\n${sections}\n</body>`;
 
   const fontParam = [theme.fonts.heading, theme.fonts.body]
@@ -164,12 +194,13 @@ h4.pp-heading { font-size: 1rem; text-transform: uppercase; letter-spacing: 0.06
 /* Buttons */
 .pp-button { align-self: flex-start; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.8rem 1.5rem; border-radius: 999px; text-decoration: none; font-weight: 700; background: var(--pp-primary); color: #fff; box-shadow: 0 8px 18px color-mix(in srgb, var(--pp-primary) 32%, transparent); transition: transform 0.14s ease, box-shadow 0.14s ease, filter 0.14s ease; }
 .pp-button:hover { transform: translateY(-2px); filter: brightness(1.06); box-shadow: 0 12px 26px color-mix(in srgb, var(--pp-primary) 42%, transparent); }
-.pp-button--primary { background: var(--pp-primary); color: #fff; }
+.pp-button--primary { background: linear-gradient(135deg, var(--pp-primary), color-mix(in srgb, var(--pp-primary) 55%, var(--pp-secondary))); color: #fff; }
 .pp-button--secondary { background: var(--pp-secondary); color: var(--pp-text); box-shadow: 0 8px 18px color-mix(in srgb, var(--pp-secondary) 32%, transparent); }
 .pp-button--ghost { background: transparent; color: var(--pp-primary); border: 2px solid color-mix(in srgb, var(--pp-primary) 40%, transparent); box-shadow: none; }
 
 /* Media, lists, inputs */
-.pp-image { width: 100%; height: auto; border-radius: var(--pp-radius); display: block; object-fit: cover; box-shadow: var(--pp-shadow); }
+.pp-image { width: 100%; height: auto; min-height: 120px; border-radius: var(--pp-radius); display: block; object-fit: cover; box-shadow: var(--pp-shadow); transition: transform 0.35s ease; }
+.pp-features .pp-cell:hover .pp-image, .pp-gallery .pp-cell:hover .pp-image { transform: scale(1.035); }
 .pp-list { margin: 0; padding-left: 1.1rem; }
 .pp-list li { margin: 0.35rem 0; }
 .pp-input { width: 100%; padding: 0.75rem 1.1rem; border: 1px solid var(--pp-border); border-radius: 999px; font: inherit; background: #fff; }
@@ -206,6 +237,18 @@ h4.pp-heading { font-size: 1rem; text-transform: uppercase; letter-spacing: 0.06
 .pp-bg-dark { background: var(--pp-text); color: #fff; }
 .pp-bg-dark .pp-paragraph { color: rgba(255, 255, 255, 0.82); }
 .pp-bg-dark .pp-heading { color: #fff; }
+
+/* Motion — entrance on load, upgraded to scroll-reveal where supported. Gated on
+   no-preference so reduced-motion users always see fully-visible content. */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes pp-fade-up { from { opacity: 0; transform: translateY(26px); } to { opacity: 1; transform: none; } }
+  .pp-section:not(.pp-nav) .pp-cell { animation: pp-fade-up 0.8s cubic-bezier(0.16, 0.84, 0.44, 1) both; }
+  @supports (animation-timeline: view()) {
+    .pp-section:not(.pp-nav) .pp-cell { animation-timeline: view(); animation-range: entry 0% cover 32%; }
+  }
+  @keyframes pp-hero-drift { from { background-position: 0% 0%, 100% 0%, 0 0; } to { background-position: 6% 4%, 94% 3%, 0 0; } }
+  .pp-bg-gradient { animation: pp-hero-drift 14s ease-in-out infinite alternate; }
+}
 
 @media (max-width: 768px) {
   .pp-container { grid-template-columns: 1fr; }

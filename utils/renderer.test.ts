@@ -60,14 +60,40 @@ describe('renderPage', () => {
     expect(html).toContain('alt="Hero shot"');
   });
 
-  it('placeholder SVG has valid (not double-encoded) hex fills — regression: black box', () => {
+  it('placeholder is a palette gradient with valid (not double-encoded) hex — regression: black box', () => {
     const { html } = renderPage(ir);
     const src = html.match(/src="(data:image\/svg\+xml[^"]*)"/)?.[1] ?? '';
-    // Must not contain a double-encoded '#': %2523 decodes to the literal "%23", an invalid fill.
+    // Must not contain a double-encoded '#': %2523 decodes to the literal "%23", an invalid color.
     expect(src).not.toContain('%2523');
     const decoded = decodeURIComponent(src.replace('data:image/svg+xml;utf8,', ''));
-    expect(decoded).toContain('fill="#e2e8f0"');
-    expect(decoded).not.toContain('fill="%23');
+    expect(decoded).toContain('linearGradient');
+    expect(decoded).toContain('stop-color="#14b8a6"'); // ir fixture primary
+    expect(decoded).not.toContain('stop-color="%23');
+  });
+
+  it('emits a gradient primary button', () => {
+    const { css } = renderPage(ir);
+    expect(css).toContain('.pp-button--primary { background: linear-gradient(');
+  });
+
+  it('emits scroll/entrance animation gated on reduced-motion', () => {
+    const { css } = renderPage(ir);
+    expect(css).toContain('@keyframes pp-fade-up');
+    expect(css).toContain('prefers-reduced-motion: no-preference');
+    expect(css).toContain('animation-timeline: view()');
+  });
+
+  it('auto-applies a color rhythm by role when background is default', () => {
+    const p: PageIR = {
+      ...ir,
+      sections: [
+        { id: 'h', role: 'hero', background: 'default', layout: { columns: 1, align: 'center' }, elements: [{ type: 'heading', text: 'Hi' }] },
+        { id: 'f', role: 'footer', background: 'default', layout: { columns: 1, align: 'start' }, elements: [{ type: 'paragraph', text: 'x' }] },
+      ],
+    };
+    const { html } = renderPage(p);
+    expect(html).toContain('pp-hero pp-bg-gradient'); // hero -> gradient
+    expect(html).toContain('pp-footer pp-bg-dark'); // footer -> dark
   });
 
   it('emits CSS custom properties from the palette', () => {
