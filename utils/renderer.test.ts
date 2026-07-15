@@ -276,6 +276,37 @@ describe('renderPage', () => {
     expect(cards.length).toBe(3);
   });
 
+  it('renders a run of many images in one column as a thumbnail grid, not stacked photos', () => {
+    const m: PageIR = {
+      ...ir,
+      sections: [
+        {
+          id: 'm',
+          role: 'gallery',
+          background: 'default',
+          layout: { columns: 3, align: 'start' },
+          elements: [
+            { type: 'heading', level: 2, text: 'Media Archive', col: 1, colSpan: 2 },
+            { type: 'image', alt: 't1', col: 1 },
+            { type: 'image', alt: 't2', col: 1 },
+            { type: 'image', alt: 't3', col: 1 },
+            { type: 'image', alt: 't4', col: 1 },
+            { type: 'image', alt: 't5', col: 1 },
+            { type: 'image', alt: 't6', col: 1 },
+            { type: 'video', col: 2 },
+          ],
+        },
+      ],
+    };
+    const { html, css } = renderPage(m);
+    expect(html).toContain('class="pp-thumbs"');
+    expect((html.match(/class="pp-thumb"/g) || []).length).toBe(6); // 6 small tiles
+    expect(html).not.toContain('images.unsplash.com'); // tiles are mesh, not big photos
+    expect(css).toContain('.pp-thumbs');
+    // the 2-col section heading is a standalone banner, not merged into the thumb column
+    expect(html).toContain('grid-column:1 / span 2');
+  });
+
   it('overlays hero text on a full-bleed image when the hero has both', () => {
     const h: PageIR = {
       ...ir,

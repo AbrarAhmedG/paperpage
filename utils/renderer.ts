@@ -216,6 +216,37 @@ function cellStyle(col: number | undefined, colSpan: number | undefined, columns
   return '';
 }
 
+// Render a cell's elements. A run of 3+ consecutive images (a thumbnail wall —
+// e.g. a media archive or portfolio) becomes a compact tile grid instead of a
+// stack of full-bleed photos.
+function renderCellInner(els: Element[], ctx: RenderCtx, role: Section['role']): string {
+  const out: string[] = [];
+  let i = 0;
+  while (i < els.length) {
+    if (els[i].type === 'image') {
+      let j = i;
+      while (j < els.length && els[j].type === 'image') j++;
+      const run = els.slice(i, j);
+      if (run.length >= 3) {
+        const tiles = run
+          .map((e) => {
+            const ph = placeholderSvg(ctx.primary, ctx.secondary, ctx.img.v++);
+            return `<img class="pp-thumb" data-pp-asset="1" src="${ph}" alt="${esc(e.alt)}" />`;
+          })
+          .join('');
+        out.push(`<div class="pp-thumbs">${tiles}</div>`);
+      } else {
+        for (const e of run) out.push(renderElement(e, ctx, role));
+      }
+      i = j;
+    } else {
+      out.push(renderElement(els[i], ctx, role));
+      i++;
+    }
+  }
+  return out.join('\n        ');
+}
+
 function renderSection(section: Section, ctx: RenderCtx, index: number): string {
   const cols = section.layout.columns;
   const bg = effectiveBackground(section, index);
@@ -252,7 +283,12 @@ function renderSection(section: Section, ctx: RenderCtx, index: number): string 
   };
   for (const el of section.elements) {
     const col = el.col;
-    const isBanner = cols <= 1 || col == null || (el.colSpan != null && el.colSpan >= cols);
+    // A heading spanning 2+ columns is a section title -> full-width banner.
+    const isBanner =
+      cols <= 1 ||
+      col == null ||
+      (el.colSpan != null && el.colSpan >= cols) ||
+      (el.type === 'heading' && (el.colSpan ?? 1) >= 2);
     if (isBanner || col == null) {
       flush();
       groups.push({ col, colSpan: el.colSpan, els: [el] });
@@ -270,7 +306,7 @@ function renderSection(section: Section, ctx: RenderCtx, index: number): string 
   let featureIdx = 0;
   const cells = groups
     .map((g) => {
-      const inner = g.els.map((e) => renderElement(e, ctx, section.role)).join('\n        ');
+      const inner = renderCellInner(g.els, ctx, section.role);
       // Feature cards without their own image get a leading themed icon tile.
       let lead = '';
       if (section.role === 'features' && !g.els.some((e) => e.type === 'image')) {
@@ -370,6 +406,9 @@ h3.pp-heading { font-size: 1.28rem; }
 .pp-image { width: 100%; height: auto; aspect-ratio: 4 / 3; border-radius: var(--pp-radius); display: block; object-fit: cover; box-shadow: var(--pp-shadow); border: 1px solid var(--pp-border); transition: transform 0.35s ease; background: linear-gradient(135deg, color-mix(in srgb, var(--pp-primary) 70%, #0b1020), color-mix(in srgb, var(--pp-secondary) 45%, #0b1020)); }
 .pp-features .pp-cell:hover .pp-image, .pp-gallery .pp-cell:hover .pp-image { transform: scale(1.025); }
 .pp-image--avatar { width: 72px; height: 72px; min-height: 0; aspect-ratio: 1 / 1; border-radius: 50%; }
+/* Thumbnail wall (a run of many images -> compact tile grid) */
+.pp-thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 0.6rem; width: 100%; }
+.pp-thumb { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 10px; border: 1px solid var(--pp-border); display: block; }
 .pp-list { margin: 0; padding-left: 1.15rem; }
 .pp-list li { margin: 0.35rem 0; }
 .pp-list li::marker { color: var(--pp-primary); }
