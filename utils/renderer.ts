@@ -307,13 +307,19 @@ function renderSection(section: Section, ctx: RenderCtx, index: number): string 
   const cells = groups
     .map((g) => {
       const inner = renderCellInner(g.els, ctx, section.role);
+      // A lone image in a card grid fills its (stretched) cell, so a single tall
+      // block matches the height of a taller neighbouring column — as drawn.
+      const fill =
+        (section.role === 'features' || section.role === 'gallery') &&
+        g.els.length === 1 &&
+        g.els[0].type === 'image';
       // Feature cards without their own image get a leading themed icon tile.
       let lead = '';
       if (section.role === 'features' && !g.els.some((e) => e.type === 'image')) {
         lead = `<span class="pp-icon">${icon(FEATURE_ICONS[featureIdx % FEATURE_ICONS.length])}</span>\n        `;
         featureIdx++;
       }
-      return `<div class="pp-cell"${cellStyle(g.col, g.colSpan, cols)}>\n        ${lead}${inner}\n      </div>`;
+      return `<div class="pp-cell"${fill ? ' data-fill="1"' : ''}${cellStyle(g.col, g.colSpan, cols)}>\n        ${lead}${inner}\n      </div>`;
     })
     .join('\n      ');
   // CTA sections wrap their content in an inset gradient panel.
@@ -457,6 +463,10 @@ h3.pp-heading { font-size: 1.28rem; }
 .pp-features .pp-cell, .pp-gallery .pp-cell { align-items: flex-start; background: color-mix(in srgb, var(--pp-surface) 55%, #fff); border: 1px solid var(--pp-border); border-radius: var(--pp-radius); padding: 1.7rem; box-shadow: var(--pp-shadow-sm); transition: transform 0.18s ease, box-shadow 0.18s ease; }
 .pp-features .pp-cell:hover, .pp-gallery .pp-cell:hover { transform: translateY(-5px); box-shadow: var(--pp-shadow); }
 .pp-features .pp-image, .pp-gallery .pp-image { box-shadow: none; }
+/* Equal-height cards per row; a lone block image fills its stretched cell so a
+   tall block matches a taller neighbouring column (as drawn). */
+.pp-features .pp-container, .pp-gallery .pp-container { align-items: stretch; }
+.pp-features .pp-cell[data-fill] .pp-image, .pp-gallery .pp-cell[data-fill] .pp-image { flex: 1 1 auto; height: 100%; min-height: 220px; aspect-ratio: auto; object-fit: cover; }
 
 /* CTA — inset gradient panel */
 .pp-cta .pp-container { grid-template-columns: 1fr; }

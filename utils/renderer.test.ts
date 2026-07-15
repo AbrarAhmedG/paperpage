@@ -307,6 +307,31 @@ describe('renderPage', () => {
     expect(html).toContain('grid-column:1 / span 2');
   });
 
+  it('makes a lone block image fill its cell so a tall block matches a taller column', () => {
+    const t: PageIR = {
+      ...ir,
+      sections: [
+        {
+          id: 't',
+          role: 'features',
+          background: 'default',
+          layout: { columns: 2, align: 'start' },
+          elements: [
+            { type: 'image', alt: 'tall block', col: 1 }, // lone -> fills
+            { type: 'image', alt: 's1', col: 2 },
+            { type: 'divider', col: 2 },
+            { type: 'image', alt: 's2', col: 2 }, // stacked -> not a lone image
+          ],
+        },
+      ],
+    };
+    const { html, css } = renderPage(t);
+    expect((html.match(/data-fill="1"/g) || []).length).toBe(1); // only the lone left image
+    expect(html).toContain('<div class="pp-cell" data-fill="1"');
+    expect(css).toContain('align-items: stretch');
+    expect(css).toContain('.pp-cell[data-fill]');
+  });
+
   it('overlays hero text on a full-bleed image when the hero has both', () => {
     const h: PageIR = {
       ...ir,
