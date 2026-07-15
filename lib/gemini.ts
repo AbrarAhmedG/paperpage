@@ -30,9 +30,10 @@ Return ONLY a single JSON object (no markdown, no commentary) with EXACTLY this 
     {
       "id": "<short unique string>",
       "role": "<one of: ${SECTION_ROLES.join(', ')}>",
-      "layout": { "columns": <integer 1-4>, "align": "start" | "center" | "end" },
+      "background": "default" | "surface" | "primary" | "gradient" | "dark",
+      "layout": { "columns": <integer 1-12>, "align": "start" | "center" | "end" },
       "elements": [
-        { "type": "<one of: ${ELEMENT_TYPES.join(', ')}>", "text": "<optional>", "level": "<optional 1-4>", "variant": "<optional: primary|secondary|ghost>", "items": ["<optional list>"], "placeholder": "<optional>", "alt": "<optional>" }
+        { "type": "<one of: ${ELEMENT_TYPES.join(', ')}>", "text": "<optional>", "level": "<optional 1-4>", "variant": "<optional: primary|secondary|ghost>", "items": ["<optional list>"], "placeholder": "<optional>", "alt": "<optional>", "col": "<optional 1-indexed column>", "colSpan": "<optional integer>", "row": "<optional 1-indexed row>" }
       ]
     }
   ]
@@ -44,11 +45,13 @@ Rules:
 - Transcribe what is ACTUALLY DRAWN. Do NOT invent marketing copy, feature lists, or sections that are not in the sketch. If a box is labeled (e.g. "AD 300x100", "CHAT BOX", "LOGO"), use that label.
 - Every section object MUST include an "elements" array with at least one element. Never omit the "elements" key.
 - Infer each section's role from the drawing; order sections top-to-bottom exactly as drawn.
+- PLACE ELEMENTS ON A GRID to match the drawing's 2D arrangement. Set the section's "columns" to the number of columns you see, and give each element a "col" (1-indexed; col 1 = leftmost), plus "colSpan" for wide items and "row" for vertical position. Elements drawn side by side get DIFFERENT "col" values; a full-width banner uses "colSpan" equal to "columns". If a region is a simple single column, use columns 1 and omit col/row.
 - Map drawn regions to the closest element type: a picture/video/media box -> "image"; a labeled ad/banner slot -> "image" (put its label in "alt"); an input/search field -> "input"; a menu or bullet list -> "list"; a block of body text or a labeled placeholder box -> "paragraph".
-- All palette colors MUST be 6-digit hex like "#14b8a6". Use a clean, modern palette with a light background (do NOT use pure black #000000 as primary unless clearly drawn that way).
+- All palette colors MUST be 6-digit hex. Choose a MODERN, ATTRACTIVE palette (clean, high-contrast, light background; do NOT use pure black #000000 as primary unless clearly drawn that way). Set each section's "background" for visual rhythm (e.g. a "gradient" hero, alternating "surface"); use "default" when unsure.
 - The main title is a heading with "level": 1. Buttons use "type": "button" with short "text".
-- Only add short placeholder copy where the handwriting is genuinely unclear; otherwise leave "text" empty rather than inventing content.
+- Only add short placeholder copy where the handwriting is genuinely unclear; otherwise leave "text" empty rather than inventing content (the renderer fills neutral placeholders).
 - Use "normal" spacing unless the sketch is clearly dense (compact) or airy (roomy).
+- If the image is clearly NOT a hand-drawn web-page layout, return a single "hero" section with one heading and one paragraph as a starter — do not invent a full site.
 - Output the JSON object only.`;
 
 // Pull the first balanced JSON object out of the model's reply (handles code
