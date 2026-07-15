@@ -242,6 +242,65 @@ describe('renderPage', () => {
     expect(html).toContain('grid-column:2 / span 1');
   });
 
+  it('builds even cards when the model emits row-major (title, all images, then all descriptions)', () => {
+    const f: PageIR = {
+      ...ir,
+      sections: [
+        {
+          id: 'f',
+          role: 'features',
+          background: 'default',
+          layout: { columns: 3, align: 'center' },
+          elements: [
+            { type: 'heading', level: 2, text: 'This is a title', col: 1, colSpan: 3 },
+            { type: 'image', alt: 'i1', col: 1 },
+            { type: 'image', alt: 'i2', col: 2 },
+            { type: 'image', alt: 'i3', col: 3 },
+            { type: 'heading', level: 3, text: 'Section title', col: 1 },
+            { type: 'paragraph', text: 'desc', col: 1 },
+            { type: 'heading', level: 3, text: 'Section title', col: 2 },
+            { type: 'paragraph', text: 'desc', col: 2 },
+            { type: 'heading', level: 3, text: 'Section title', col: 3 },
+            { type: 'paragraph', text: 'desc', col: 3 },
+          ],
+        },
+      ],
+    };
+    const { html } = renderPage(f);
+    // full-width title banner + 3 even cards = 4 cells (title NOT merged into card 1)
+    expect((html.match(/class="pp-cell"/g) || []).length).toBe(4);
+    expect(html).toContain('grid-column:1 / span 3'); // the title banner
+    // each of the 3 cards holds its image AND its title together in one cell
+    const cellChunks = html.split('<div class="pp-cell"').slice(1);
+    const cards = cellChunks.filter((c) => c.includes('data-pp-asset') && c.includes('Section title'));
+    expect(cards.length).toBe(3);
+  });
+
+  it('overlays hero text on a full-bleed image when the hero has both', () => {
+    const h: PageIR = {
+      ...ir,
+      sections: [
+        {
+          id: 'h',
+          role: 'hero',
+          background: 'gradient',
+          layout: { columns: 1, align: 'start' },
+          elements: [
+            { type: 'image', alt: 'bg' },
+            { type: 'heading', level: 1, text: 'Product' },
+            { type: 'paragraph', text: 'Description' },
+            { type: 'button', text: 'Learn More', variant: 'primary' },
+          ],
+        },
+      ],
+    };
+    const { html, css } = renderPage(h);
+    expect(html).toContain('pp-hero--media'); // overlay hero
+    expect(html).toContain('pp-hero__img'); // image is the background
+    expect(html).toMatch(/pp-hero__bg[\s\S]*Product/); // heading overlaid after the bg
+    expect(css).toContain('.pp-hero--media');
+  });
+
   it('renders nav menus horizontally, not as vertical bullets', () => {
     const { css } = renderPage(ir);
     expect(css).toMatch(/\.pp-nav \.pp-list\s*\{[^}]*display:\s*flex/);

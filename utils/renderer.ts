@@ -219,20 +219,54 @@ function cellStyle(col: number | undefined, colSpan: number | undefined, columns
 function renderSection(section: Section, ctx: RenderCtx, index: number): string {
   const cols = section.layout.columns;
   const bg = effectiveBackground(section, index);
-  // Group consecutive elements that share a column into ONE stacked cell. This
-  // prevents overlap (the model sometimes assigns several elements to the same
-  // cell) and keeps a card's contents (icon / title / text / button) together.
-  type Group = { col?: number; colSpan?: number; els: Element[] };
-  const groups: Group[] = [];
-  for (const el of section.elements) {
-    const last = groups[groups.length - 1];
-    if (last && el.col != null && last.col === el.col) {
-      last.els.push(el);
-      last.colSpan = Math.max(last.colSpan ?? 1, el.colSpan ?? 1);
-    } else {
-      groups.push({ col: el.col, colSpan: el.colSpan, els: [el] });
+  // Hero with a background image + overlaid text (the sketch drew text ON the
+  // image): render the photo full-bleed with the heading / copy / button
+  // overlaid, instead of stacking image-then-text.
+  if (section.role === 'hero' && cols <= 1) {
+    const imgEl = section.elements.find((e) => e.type === 'image');
+    const overlay = section.elements.filter((e) => e !== imgEl);
+    if (imgEl && overlay.some((e) => e.type !== 'image')) {
+      const src = CURATED_PHOTOS[ctx.photo.v++ % CURATED_PHOTOS.length];
+      const content = overlay.map((e) => renderElement(e, ctx, 'hero')).join('\n        ');
+      return `  <section data-region="hero" class="pp-section pp-hero pp-hero--media" data-align="${section.layout.align}">
+    <div class="pp-hero__bg"><img class="pp-hero__img" data-pp-asset="1" src="${src}" alt="${esc(imgEl.alt)}" loading="lazy" /></div>
+    <div class="pp-container" style="--pp-cols:1">
+      <div class="pp-cell">
+        ${content}
+      </div>
+    </div>
+  </section>`;
     }
   }
+  // Group elements into column cells so a card's contents (image / title / text
+  // / button) end up in ONE cell — even when the model emits row-major (all
+  // images, then all titles, then all descriptions). Full-width banners
+  // (colSpan == columns, or elements with no col) stand alone and flush the
+  // current band, preserving top-to-bottom order.
+  type Group = { col?: number; colSpan?: number; els: Element[] };
+  const groups: Group[] = [];
+  let band = new Map<number, Group>();
+  const flush = () => {
+    for (const col of [...band.keys()].sort((a, b) => a - b)) groups.push(band.get(col)!);
+    band = new Map();
+  };
+  for (const el of section.elements) {
+    const col = el.col;
+    const isBanner = cols <= 1 || col == null || (el.colSpan != null && el.colSpan >= cols);
+    if (isBanner || col == null) {
+      flush();
+      groups.push({ col, colSpan: el.colSpan, els: [el] });
+    } else {
+      const g = band.get(col);
+      if (g) {
+        g.els.push(el);
+        g.colSpan = Math.max(g.colSpan ?? 1, el.colSpan ?? 1);
+      } else {
+        band.set(col, { col, colSpan: el.colSpan, els: [el] });
+      }
+    }
+  }
+  flush();
   let featureIdx = 0;
   const cells = groups
     .map((g) => {
@@ -368,6 +402,17 @@ h3.pp-heading { font-size: 1.28rem; }
 /* Hero */
 .pp-hero { overflow: hidden; }
 .pp-hero .pp-heading { margin-top: 0; }
+
+/* Hero with a full-bleed background image + overlaid text */
+.pp-hero--media { position: relative; color: #fff; }
+.pp-hero__bg { position: absolute; inset: 0; z-index: 0; }
+.pp-hero__img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pp-hero--media::after { content: ""; position: absolute; inset: 0; z-index: 1; background: linear-gradient(90deg, rgba(9, 13, 24, 0.86) 0%, rgba(9, 13, 24, 0.6) 42%, rgba(9, 13, 24, 0.12) 100%); }
+.pp-hero--media .pp-container { position: relative; z-index: 2; min-height: 420px; align-items: center; }
+.pp-hero--media .pp-cell { max-width: 640px; }
+.pp-hero--media .pp-heading { color: #fff; }
+.pp-hero--media .pp-paragraph { color: rgba(255, 255, 255, 0.85); }
+.pp-section.pp-hero--media[data-align="center"] .pp-cell { margin: 0 auto; }
 
 /* Feature / gallery cards */
 .pp-features .pp-cell, .pp-gallery .pp-cell { align-items: flex-start; background: color-mix(in srgb, var(--pp-surface) 55%, #fff); border: 1px solid var(--pp-border); border-radius: var(--pp-radius); padding: 1.7rem; box-shadow: var(--pp-shadow-sm); transition: transform 0.18s ease, box-shadow 0.18s ease; }
