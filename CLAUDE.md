@@ -23,7 +23,7 @@ PaperPage turns a rough hand drawing into a real, editable web page. Flow: **upl
 | Language | **TypeScript 5.4** | `strict: false`, `strictNullChecks: true` |
 | App styling | **Tailwind CSS 3.4** | The app's own UI (Aurora Glassmorphism). NOT used in generated pages. |
 | DB / Auth / Storage | **Supabase** (`@supabase/supabase-js`, `@supabase/ssr`) | Postgres, email/password auth, private Storage buckets, RLS |
-| AI vision | **Google Gemini** (`@google/generative-ai`) | Sketch → structured Layout IR via JSON `responseSchema` |
+| AI vision | **Provider-agnostic** (`lib/gemini.ts`) | Sketch → Layout IR. Default: Groq (free, OpenAI-compatible). Optional: **Claude** via `@anthropic-ai/sdk` (`AI_PROVIDER=anthropic`, best fidelity, paid). |
 | Visual editor | **GrapesJS** | WYSIWYG page builder (style/block/layer/asset/device managers) |
 | Validation | **Zod** | Validates the Layout IR before rendering |
 | Export | **JSZip** | Bundles HTML/CSS + images into a downloadable `.zip` |
@@ -136,7 +136,10 @@ paperpage/
 ```
 NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
-GEMINI_API_KEY=...            # server-side only; never reaches the browser
+# Vision AI (server-side only; never reaches the browser). See .env.example.
+AI_API_KEY=...               # default: Groq (free, OpenAI-compatible)
+# AI_PROVIDER=anthropic      # switch to Claude (paid); then set:
+# ANTHROPIC_API_KEY=sk-ant-...   AI_MODEL=claude-opus-4-8
 ```
 
 No service-role key: server routes use the **user-scoped** Supabase server client (anon key + cookies) so RLS stays in force. See `.env.example`.

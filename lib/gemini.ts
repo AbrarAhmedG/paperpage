@@ -61,12 +61,55 @@ function extractJson(text: string): string {
   return start !== -1 && end > start ? raw.slice(start, end + 1) : raw.trim();
 }
 
+const USER_INSTRUCTION = 'Interpret this hand-drawn website sketch and return the layout JSON.';
+
 /**
- * Calls an OpenAI-compatible vision chat endpoint and returns the raw parsed
- * layout object (validated downstream by validateIR). Defaults to Groq (free);
- * override with AI_BASE_URL / AI_API_KEY / AI_MODEL for OpenRouter, Ollama, etc.
+ * Anthropic (Claude) path — uses the official SDK's Messages API with vision.
+ * Far higher wireframe fidelity than the free tier, but requires an Anthropic
+ * API key (console.anthropic.com; pay-as-you-go — NOT a claude.ai subscription).
+ * Enabled with AI_PROVIDER=anthropic. Default model: claude-opus-4-8.
  */
-export async function callGeminiVision(image: { data: string; mimeType: string }): Promise<unknown> {
+async function callViaAnthropic(image: { data: string; mimeType: string }): Promise<unknown> {
+  const { default: Anthropic } = await import('@anthropic-ai/sdk');
+  const apiKey = process.env.ANTHROPIC_API_KEY || process.env.AI_API_KEY || '';
+  if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not set (required when AI_PROVIDER=anthropic)');
+  const model = process.env.AI_MODEL || 'claude-opus-4-8';
+
+  const client = new Anthropic({ apiKey });
+  const res = await client.messages.create({
+    model,
+    max_tokens: 8192,
+    system: PROMPT,
+    messages: [
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'image',
+            source: {
+              type: 'base64',
+              // downscaleImage always emits JPEG; keep in sync if that changes.
+              media_type: (image.mimeType as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp') || 'image/jpeg',
+              data: image.data,
+            },
+          },
+          { type: 'text', text: USER_INSTRUCTION },
+        ],
+      },
+    ],
+  });
+
+  const block = res.content.find((b) => b.type === 'text');
+  const text = block && 'text' in block ? block.text : undefined;
+  if (typeof text !== 'string') throw new Error('Anthropic response contained no text content');
+  return JSON.parse(extractJson(text));
+}
+
+/**
+ * OpenAI-compatible path (default) — Groq (free), OpenRouter, local Ollama, etc.
+ * Configure with AI_BASE_URL / AI_API_KEY / AI_MODEL.
+ */
+async function callViaOpenAICompatible(image: { data: string; mimeType: string }): Promise<unknown> {
   const baseUrl = (process.env.AI_BASE_URL || 'https://api.groq.com/openai/v1').replace(/\/+$/, '');
   const apiKey = process.env.AI_API_KEY || process.env.GROQ_API_KEY || '';
   const model = process.env.AI_MODEL || 'meta-llama/llama-4-scout-17b-16e-instruct';
@@ -89,7 +132,7 @@ export async function callGeminiVision(image: { data: string; mimeType: string }
         {
           role: 'user',
           content: [
-            { type: 'text', text: 'Interpret this hand-drawn website sketch and return the layout JSON.' },
+            { type: 'text', text: USER_INSTRUCTION },
             { type: 'image_url', image_url: { url: `data:${image.mimeType};base64,${image.data}` } },
           ],
         },
@@ -106,4 +149,16 @@ export async function callGeminiVision(image: { data: string; mimeType: string }
   const content = json.choices?.[0]?.message?.content;
   if (typeof content !== 'string') throw new Error('AI response contained no text content');
   return JSON.parse(extractJson(content));
+}
+
+/**
+ * Interprets a sketch into a raw layout object (validated downstream by
+ * validateIR). Provider is chosen by AI_PROVIDER:
+ *   - "anthropic" -> Claude via the official SDK (paid, best fidelity)
+ *   - anything else (default) -> OpenAI-compatible endpoint (Groq free, etc.)
+ */
+export async function callGeminiVision(image: { data: string; mimeType: string }): Promise<unknown> {
+  const provider = (process.env.AI_PROVIDER || '').toLowerCase();
+  if (provider === 'anthropic' || provider === 'claude') return callViaAnthropic(image);
+  return callViaOpenAICompatible(image);
 }
