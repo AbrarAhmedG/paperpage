@@ -111,4 +111,29 @@ describe('renderPage', () => {
     expect(css).toContain('@media (max-width: 768px)');
     expect(css).toContain('grid-template-columns: 1fr');
   });
+
+  it('fills placeholder copy for empty elements', () => {
+    const p: PageIR = {
+      ...ir,
+      sections: [
+        {
+          id: 'p',
+          role: 'text',
+          background: 'default',
+          layout: { columns: 1, align: 'start' },
+          elements: [
+            { type: 'heading', level: 2 },
+            { type: 'paragraph' },
+            { type: 'button' },
+            { type: 'list' },
+          ],
+        },
+      ],
+    };
+    const { html } = renderPage(p);
+    expect(html).toMatch(/<h2 class="pp-heading">[^<]+<\/h2>/); // non-empty heading
+    expect(html).toMatch(/<p class="pp-paragraph">[^<]+<\/p>/); // non-empty paragraph
+    expect(html).toContain('<li>'); // list has placeholder items
+    expect(html.toLowerCase()).not.toContain('<script'); // still safe
+  });
 });

@@ -20,22 +20,37 @@ const PLACEHOLDER =
     '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450"><rect width="100%" height="100%" fill="#e2e8f0"/><text x="50%" y="50%" fill="#94a3b8" font-family="sans-serif" font-size="24" text-anchor="middle" dominant-baseline="middle">Image</text></svg>',
   );
 
+// Neutral placeholder copy so empty sketch boxes render as styled, visible
+// headings / body / buttons. Deterministic and static (always escaped), so the
+// model can honestly leave text empty while the page still looks complete.
+const LOREM =
+  'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.';
+const HEADING_PLACEHOLDER: Record<number, string> = {
+  1: 'Your Headline Goes Here',
+  2: 'A Section Heading',
+  3: 'A Subheading',
+  4: 'Detail Heading',
+};
+const LIST_PLACEHOLDER = ['First item', 'Second item', 'Third item'];
+
 function renderElement(el: Element): string {
   switch (el.type) {
     case 'heading': {
       const lvl = Math.min(Math.max(el.level ?? 2, 1), 4);
-      return `<h${lvl} class="pp-heading">${esc(el.text)}</h${lvl}>`;
+      const text = esc(el.text) || esc(HEADING_PLACEHOLDER[lvl] ?? 'Heading');
+      return `<h${lvl} class="pp-heading">${text}</h${lvl}>`;
     }
     case 'paragraph':
-      return `<p class="pp-paragraph">${esc(el.text)}</p>`;
+      return `<p class="pp-paragraph">${esc(el.text) || esc(LOREM)}</p>`;
     case 'button': {
       const v = el.variant ?? 'primary';
-      return `<a class="pp-button pp-button--${v}" href="#">${esc(el.text) || 'Button'}</a>`;
+      return `<a class="pp-button pp-button--${v}" href="#">${esc(el.text) || 'Learn More'}</a>`;
     }
     case 'image':
       return `<img class="pp-image" data-pp-asset="1" src="${PLACEHOLDER}" alt="${esc(el.alt)}" />`;
     case 'list': {
-      const items = (el.items ?? []).map((i) => `<li>${esc(i)}</li>`).join('');
+      const src = el.items && el.items.length ? el.items : LIST_PLACEHOLDER;
+      const items = src.map((i) => `<li>${esc(i)}</li>`).join('');
       return `<ul class="pp-list">${items}</ul>`;
     }
     case 'input':
