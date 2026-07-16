@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
+import SketchToSiteVisual from '@/components/landing/SketchToSiteVisual';
 
 const STEPS = [
   { n: '01', title: 'Upload your sketch', body: 'Photograph or scan a hand-drawn page layout — boxes, lines, and labels are enough.' },
@@ -7,11 +8,51 @@ const STEPS = [
   { n: '03', title: 'Refine & export', body: 'Tweak colors, type, and content in the visual editor, then export portable HTML/CSS as a .zip.' },
 ];
 
-const FEATURES = [
-  { icon: '✏️', title: 'Sketch to Site', body: 'Turn a rough drawing into a structured, editable page in seconds — grid layout, not a flat stack.' },
-  { icon: '🎨', title: 'Visual refinement', body: 'A drag-and-drop editor with blocks, style controls, and live preview. No code required.' },
-  { icon: '📦', title: 'Portable export', body: 'Download clean, self-contained HTML/CSS with images bundled — host it anywhere, no lock-in.' },
+const ICON_PATHS = {
+  camera: (
+    <>
+      <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+      <circle cx="12" cy="13" r="3" />
+    </>
+  ),
+  layout: (
+    <>
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <path d="M3 9h18" />
+      <path d="M9 21V9" />
+    </>
+  ),
+  box: (
+    <>
+      <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
+      <path d="M3.3 7 12 12l8.7-5" />
+      <path d="M12 22V12" />
+    </>
+  ),
+} as const;
+
+const FEATURES: { icon: keyof typeof ICON_PATHS; title: string; body: string }[] = [
+  { icon: 'camera', title: 'Works from a phone photo', body: 'Snap your sketch where it lives — a napkin, a whiteboard, a notebook page. Boxes, lines, and labels are enough.' },
+  { icon: 'layout', title: 'Structure, not guesswork', body: 'Vision AI maps your drawing to a typed layout, and a deterministic renderer emits clean, semantic HTML/CSS — a real grid, not a flat stack.' },
+  { icon: 'box', title: 'Yours to host anywhere', body: 'Export a self-contained .zip — HTML, CSS, and images bundled with relative paths. No runtime, no lock-in, no PaperPage required.' },
 ];
+
+function FeatureIcon({ name }: { name: keyof typeof ICON_PATHS }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-5 w-5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {ICON_PATHS[name]}
+    </svg>
+  );
+}
 
 export default async function LandingPage() {
   const supabase = await createClient();
@@ -19,8 +60,8 @@ export default async function LandingPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const primaryHref = user ? '/dashboard' : '/login';
-  const primaryLabel = user ? 'Go to Dashboard' : 'Get started';
+  const primaryHref = user ? '/dashboard' : '/signup';
+  const primaryLabel = user ? 'Go to Dashboard' : 'Get started free';
 
   return (
     <main className="relative min-h-screen bg-slate-50 overflow-hidden text-slate-800">
@@ -76,17 +117,21 @@ export default async function LandingPage() {
           </Link>
           {!user && (
             <Link
-              href="/signup"
+              href="#how-it-works"
               className="px-8 py-4 rounded-xl bg-white/60 backdrop-blur-md border border-border font-semibold hover:bg-white/80 transition-all inline-block"
             >
-              Create an account
+              See how it works
             </Link>
           )}
+        </div>
+
+        <div className="mt-16 w-full">
+          <SketchToSiteVisual />
         </div>
       </section>
 
       {/* How it works */}
-      <section className="relative z-10 max-w-7xl mx-auto px-6 py-16">
+      <section id="how-it-works" className="relative z-10 max-w-7xl mx-auto px-6 py-16 scroll-mt-8">
         <h2 className="text-center text-3xl font-extrabold mb-12">How it works</h2>
         <div className="grid md:grid-cols-3 gap-8">
           {STEPS.map((s) => (
@@ -104,7 +149,9 @@ export default async function LandingPage() {
         <div className="grid md:grid-cols-3 gap-8">
           {FEATURES.map((f) => (
             <div key={f.title} className="p-8 rounded-2xl bg-surface backdrop-blur-lg border border-border shadow-glass text-left">
-              <div className="h-10 w-10 rounded-lg bg-mint-50 flex items-center justify-center mb-4 text-lg">{f.icon}</div>
+              <div className="h-10 w-10 rounded-lg bg-mint-50 text-mint-500 flex items-center justify-center mb-4">
+                <FeatureIcon name={f.icon} />
+              </div>
               <h3 className="text-xl font-bold mb-2">{f.title}</h3>
               <p className="text-slate-500 text-sm">{f.body}</p>
             </div>

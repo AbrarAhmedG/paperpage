@@ -111,6 +111,7 @@ paperpage/
 │       └── assets/route.ts              # GET list, POST upload
 ├── components/
 │   ├── auth/AuthForm.tsx                # email/password form
+│   ├── landing/SketchToSiteVisual.tsx   # hero before/after (sketch → rendered page), pure SVG/CSS
 │   ├── dashboard/{ProjectCard,DashboardClient}.tsx
 │   └── studio/{Uploader,Editor,StudioClient,ExportButton}.tsx
 ├── lib/
