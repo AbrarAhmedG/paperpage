@@ -44,8 +44,9 @@ export default function StudioClient({ project }: { project: Project }) {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-800">
-      <div className="flex items-center justify-between px-6 py-3 border-b border-slate-200 bg-white">
+    <main className="relative min-h-screen bg-slate-50 text-slate-800">
+      {!hasPage && <div className="absolute inset-0 bg-aurora-gradient z-0 pointer-events-none" />}
+      <div className="relative z-10 flex items-center justify-between px-6 py-3 border-b border-slate-200 bg-white">
         <Link href="/dashboard" className="text-sm text-slate-500 hover:underline">
           ← Dashboard
         </Link>
@@ -70,6 +71,7 @@ export default function StudioClient({ project }: { project: Project }) {
           onChange={handleEditorChange}
         />
       ) : (
+        <div className="relative z-10">
         <Uploader
           projectId={project.id}
           onGenerated={({ html, css, name }) => {
@@ -78,6 +80,7 @@ export default function StudioClient({ project }: { project: Project }) {
             if (name) setName(name);
           }}
         />
+        </div>
       )}
     </main>
   );

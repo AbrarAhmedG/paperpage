@@ -120,6 +120,7 @@ paperpage/
 ├── utils/
 │   ├── projects/name.ts                 # normalizeProjectName, deriveProjectName (auto-name from IR) (+ .test.ts)
 │   ├── dates.ts                         # formatRelativeDate for dashboard cards (+ .test.ts)
+│   ├── studio/progress.ts               # staged generation-wait labels (+ .test.ts)
 │   ├── ir/schema.ts                     # Zod Layout IR (+ .test.ts)
 │   ├── editor/css.ts                    # protected base CSS split for GrapesJS (+ .test.ts)
 │   ├── renderer.ts                      # IR → {html, css} (+ .test.ts)
@@ -185,7 +186,7 @@ No service-role key: server routes use the **user-scoped** Supabase server clien
 - Email/password auth (`/login`, `/signup`), signup-trigger `profiles`, middleware route guards.
 - Project CRUD (`/api/projects*`) + dashboard: brand header, project cards with live mini-previews (sandboxed `iframe srcdoc` of the generated page), sketch thumbnails (signed URLs) for not-yet-generated uploads, Generated/No-page-yet badges, inline rename, hover-delete with inline confirm (optimistic + revert on failure), relative timestamps, empty-state CTA. `POST /api/generate` auto-names never-renamed projects from the page's hero heading.
 - Generation pipeline: IR Zod schema, deterministic renderer, server-only Gemini Vision wrapper, `POST /api/generate` (sketch → Storage → IR → render → persist, with validation + one retry).
-- Studio: sketch uploader (drag/drop), GrapesJS editor with curated style/block/layer/device managers and curated Google Fonts, debounced autosave, editable project name.
+- Studio: sketch uploader (aurora/glass upload state, example-sketch dropzone with drag-over feedback, staged generation progress, banner errors), GrapesJS editor with curated style/block/layer/device managers and curated Google Fonts, debounced autosave, editable project name.
 - Assets: `assets` bucket + `project_assets`, `/api/assets`, GrapesJS asset manager wired to Supabase Storage (signed URLs).
 - Export: client-side `.zip` of portable HTML/CSS with images bundled to relative paths.
 - Aurora Glassmorphism theme tokens.

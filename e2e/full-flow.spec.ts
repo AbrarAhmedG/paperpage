@@ -60,15 +60,16 @@ test('sketch → generate → edit → export is a standalone site', async ({ pa
     await expect(page.getByAltText('Sketch preview')).toBeVisible();
     await page.getByRole('button', { name: 'Generate' }).click();
 
+    const genError = page.locator('p.text-red-700');
     const generated = await Promise.race([
       page
         .getByRole('button', { name: 'Export .zip' })
         .waitFor({ timeout: 180_000 })
         .then(() => 'ok' as const),
-      page.locator('p.text-red-600').waitFor({ timeout: 180_000 }).then(() => 'error' as const),
+      genError.waitFor({ timeout: 180_000 }).then(() => 'error' as const),
     ]);
     if (generated === 'error') {
-      throw new Error(`Generation failed: ${await page.locator('p.text-red-600').textContent()}`);
+      throw new Error(`Generation failed: ${await genError.textContent()}`);
     }
 
     // --- GrapesJS editor loads the generated page in its canvas. ---
