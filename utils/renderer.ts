@@ -176,7 +176,23 @@ const HEADING_PLACEHOLDER: Record<number, string> = {
 };
 const LIST_PLACEHOLDER = ['First item', 'Second item', 'Third item'];
 
+// Structural region names that sometimes leak from the sketch into heading
+// text ("Footer", "Header") despite the prompt rule — never real page copy.
+const STRUCTURAL_LABELS = new Set([
+  'footer', 'header', 'nav', 'navbar', 'navigation', 'sidebar', 'banner', 'section', 'page', 'body', 'content', 'wrapper', 'main',
+]);
+const isStructuralHeading = (el: Element): boolean =>
+  el.type === 'heading' && STRUCTURAL_LABELS.has((el.text ?? '').trim().toLowerCase());
+
+// Partner/client logo marks render as muted chips, never full photos.
+const LOGOISH = /logo|partner|client|brand|sponsor/;
+
 type RenderCtx = { primary: string; secondary: string; img: { v: number }; photo: { v: number } };
+
+function logoChip(ctx: RenderCtx, alt: string | undefined): string {
+  const ph = placeholderSvg(ctx.primary, ctx.secondary, ctx.img.v++);
+  return `<img class="pp-logochip" data-pp-asset="1" src="${ph}" alt="${esc(alt) || 'logo'}" />`;
+}
 
 // Carousel frame — a curated photo slide with prev/next arrows and dots.
 // Decorative chrome only (no JS); GrapesJS owns the page after generation.
@@ -213,6 +229,17 @@ function renderElement(el: Element, ctx: RenderCtx, role: Section['role']): stri
       if (/avatar|icon|circle|profile/.test(altLc)) {
         const ph = placeholderSvg(ctx.primary, ctx.secondary, ctx.img.v++);
         return `<img class="pp-image pp-image--avatar" data-pp-asset="1" src="${ph}" alt="${esc(el.alt)}" />`;
+      }
+      // Partner/client logos: a muted chip, never a curated photo. A lone
+      // image standing for a whole drawn strip ("partner logo slider",
+      // "client logos") expands to a chip row — the sketch drew many boxes.
+      if (LOGOISH.test(altLc)) {
+        const strip = /slider|carousel|strip|row|wall|logos|partners|clients|brands|sponsors/.test(altLc);
+        if (strip) {
+          const chips = Array.from({ length: 6 }, () => logoChip(ctx, el.alt)).join('');
+          return `<div class="pp-logos">${chips}</div>`;
+        }
+        return logoChip(ctx, el.alt);
       }
       // A drawn image slider (labeled slider/carousel) gets carousel chrome —
       // the sketch's < > arrows — around its photo slide.
@@ -297,7 +324,10 @@ function renderCellInner(els: Element[], ctx: RenderCtx, role: Section['role']):
       let j = i;
       while (j < els.length && els[j].type === 'image') j++;
       const run = els.slice(i, j);
-      if (run.length >= 3) {
+      if (run.length >= 3 && run.every((e) => LOGOISH.test((e.alt || '').toLowerCase()))) {
+        // A row of drawn logo boxes (partners/clients wall) → logo chip strip.
+        out.push(`<div class="pp-logos">${run.map((e) => logoChip(ctx, e.alt)).join('')}</div>`);
+      } else if (run.length >= 3) {
         const tiles = run
           .map((e) => {
             const ph = placeholderSvg(ctx.primary, ctx.secondary, ctx.img.v++);
@@ -318,6 +348,8 @@ function renderCellInner(els: Element[], ctx: RenderCtx, role: Section['role']):
 }
 
 function renderSection(section: Section, ctx: RenderCtx, index: number): string {
+  // Defense-in-depth against the model echoing region names as visible copy.
+  section = { ...section, elements: section.elements.filter((e) => !isStructuralHeading(e)) };
   const cols = section.layout.columns;
   const bg = effectiveBackground(section, index);
   // Hero with a background image + overlaid text (the sketch drew text ON the
@@ -508,6 +540,8 @@ h3.pp-heading { font-size: 1.28rem; }
 /* Thumbnail wall (a run of many images -> compact tile grid) */
 .pp-thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 0.6rem; width: 100%; }
 .pp-thumb { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 10px; border: 1px solid var(--pp-border); display: block; }
+.pp-logos { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 1rem; width: 100%; }
+.pp-logochip { height: 52px; width: 124px; object-fit: cover; border-radius: 12px; border: 1px solid var(--pp-border); opacity: 0.8; filter: saturate(0.35); display: block; }
 .pp-list { margin: 0; padding-left: 1.15rem; }
 .pp-list li { margin: 0.35rem 0; }
 .pp-list li::marker { color: var(--pp-primary); }

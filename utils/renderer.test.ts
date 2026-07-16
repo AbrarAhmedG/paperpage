@@ -573,3 +573,90 @@ describe('renderPage', () => {
     expect(css).toContain('.pp-cta__inner');
   });
 });
+
+describe('partner logo strips and region-label echoes', () => {
+  const theme: PageIR['theme'] = {
+    palette: { primary: '#14b8a6', secondary: '#facc15', background: '#ffffff', surface: '#f8fafc', text: '#0f172a' },
+    fonts: { heading: 'Poppins', body: 'Inter' },
+    spacing: 'normal',
+  };
+  const mk = (sections: PageIR['sections']): PageIR => ({ theme, sections });
+
+  it('drops a heading that merely names the region (Footer) but keeps real copy', () => {
+    const { html } = renderPage(
+      mk([
+        {
+          id: 'f',
+          role: 'footer',
+          background: 'dark',
+          layout: { columns: 2, align: 'start' },
+          elements: [
+            { type: 'heading', level: 3, text: 'Footer' },
+            { type: 'heading', level: 4, text: 'Connect with us' },
+            { type: 'paragraph', text: '© 2026 The Studio' },
+          ],
+        },
+      ]),
+    );
+    expect(html).not.toMatch(/>\s*Footer\s*</);
+    expect(html).toContain('Connect with us');
+    expect(html).toContain('© 2026 The Studio');
+  });
+
+  it('keeps a real section heading like Partners', () => {
+    const { html } = renderPage(
+      mk([
+        {
+          id: 'p',
+          role: 'gallery',
+          background: 'default',
+          layout: { columns: 1, align: 'center' },
+          elements: [{ type: 'heading', level: 2, text: 'Partners' }, { type: 'image', alt: 'logo' }],
+        },
+      ]),
+    );
+    expect(html).toContain('Partners');
+  });
+
+  it('renders a lone partner-logo slider as a logo strip, not a photo carousel', () => {
+    const { html } = renderPage(
+      mk([
+        {
+          id: 'p',
+          role: 'gallery',
+          background: 'default',
+          layout: { columns: 1, align: 'center' },
+          elements: [{ type: 'image', alt: 'partner logo slider' }],
+        },
+      ]),
+    );
+    expect(html).toContain('class="pp-logos"');
+    expect((html.match(/pp-logochip/g) ?? []).length).toBeGreaterThanOrEqual(4);
+    expect(html).not.toContain('pp-carousel');
+    expect(html).not.toContain('images.unsplash.com');
+  });
+
+  it('renders a run of logo images as a chip row, not photo thumbnails', () => {
+    const { html, css } = renderPage(
+      mk([
+        {
+          id: 'p',
+          role: 'gallery',
+          background: 'default',
+          layout: { columns: 1, align: 'center' },
+          elements: [
+            { type: 'image', alt: 'logo' },
+            { type: 'image', alt: 'logo' },
+            { type: 'image', alt: 'logo' },
+            { type: 'image', alt: 'logo' },
+          ],
+        },
+      ]),
+    );
+    expect((html.match(/pp-logochip/g) ?? []).length).toBe(4);
+    expect(html).not.toContain('pp-thumb"');
+    expect(html).not.toContain('images.unsplash.com');
+    expect(css).toContain('.pp-logos');
+    expect(css).toContain('.pp-logochip');
+  });
+});
