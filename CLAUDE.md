@@ -34,7 +34,7 @@ PaperPage turns a rough hand drawing into a real, editable web page. Flow: **upl
 
 ## Generation Pipeline (Approach B / B1)
 
-The highest-value, highest-risk piece. **One-way render:** the IR generates the page once as a seed; after that, **GrapesJS owns the HTML/CSS** (no bidirectional sync).
+The highest-value, highest-risk piece. **One-way render:** the IR generates the page once as a seed; after that, **GrapesJS owns the HTML/CSS** (no bidirectional sync) — with one critical exception: **the renderer's theme CSS never enters GrapesJS's style model.** GrapesJS re-serializes parsed CSS through browser longhands, which silently drops `var()`/`color-mix()` shorthands, `@keyframes` and `@import`. `utils/editor/css.ts` (`prepareEditorCss`) therefore splits a project's stylesheet at a `/* pp:user-styles */` marker: the base (renderer) part rides along verbatim as GrapesJS `protectedCss` (injected into the canvas and prepended to `getCss()`), wrapped in `@layer pp-base` so un-layered user rules always win the cascade, with `@import` lines hoisted above the layer. GrapesJS parses only the user-rule tail. The editor also re-applies `pp-page` to the wrapper on every load (GrapesJS strips `<body>` attributes), so exports keep the theme scope.
 
 1. **Upload** — client sends a sketch photo to `POST /api/generate` (multipart).
 2. **Store** — `sharp` downscales it (≤1600px, JPEG); saved to Storage at `sketches/{user_id}/{projectId}/original.jpg`.
@@ -120,6 +120,7 @@ paperpage/
 ├── utils/
 │   ├── projects/name.ts                 # normalizeProjectName (+ .test.ts)
 │   ├── ir/schema.ts                     # Zod Layout IR (+ .test.ts)
+│   ├── editor/css.ts                    # protected base CSS split for GrapesJS (+ .test.ts)
 │   ├── renderer.ts                      # IR → {html, css} (+ .test.ts)
 │   ├── debounce.ts                      # autosave debounce (+ .test.ts)
 │   └── export/bundle.ts                 # url extract/rewrite + zip (+ .test.ts)

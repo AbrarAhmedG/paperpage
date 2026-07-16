@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { CURATED_FONTS } from '@/utils/ir/schema';
+import { prepareEditorCss } from '@/utils/editor/css';
 
 export default function Editor({
   projectId,
@@ -33,13 +34,19 @@ export default function Editor({
 
       const fontOptions = CURATED_FONTS.map((f) => ({ id: f, label: f, value: `'${f}', sans-serif` }));
 
+      // The renderer's theme CSS must never enter GrapesJS's style model (it
+      // strips var()/color-mix shorthands, @keyframes and @import on parse).
+      // It rides along as protected CSS instead; GrapesJS only owns user rules.
+      const { protectedCss, userCss } = prepareEditorCss(css);
+
       editor = grapesjs.init({
         container: containerRef.current,
         height: 'calc(100vh - 49px)',
         fromElement: false,
         storageManager: false, // app owns persistence
         components: html,
-        style: css,
+        style: userCss,
+        protectedCss,
         // Wrap plugins so options are passed inline (avoids pluginsOpts keying).
         plugins: [
           (e: any) => blocksBasic(e, { flexGrid: true, category: 'Basic' }),
@@ -162,6 +169,11 @@ export default function Editor({
           ],
         },
       });
+
+      // GrapesJS drops <body> attributes when parsing `components`, so the
+      // theme scope class is re-applied to the wrapper on every load; the
+      // wrapper serializes back to <body class="pp-page"> in getHtml().
+      editor.getWrapper()?.addClass('pp-page');
 
       // Add undo / redo to the options toolbar (core commands, text labels so
       // they render without an external icon font).

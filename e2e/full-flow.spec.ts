@@ -75,6 +75,14 @@ test('sketch → generate → edit → export is a standalone site', async ({ pa
     const canvas = page.frameLocator('iframe.gjs-frame');
     await expect(canvas.locator('.pp-section').first()).toBeVisible({ timeout: 60_000 });
 
+    // The renderer theme must reach the canvas intact (protected base CSS):
+    // a themed hero keeps its gradient background instead of collapsing to white.
+    const canvasHeroBg = await canvas
+      .locator('.pp-hero')
+      .first()
+      .evaluate((el) => getComputedStyle(el).backgroundImage);
+    expect(canvasHeroBg, 'editor canvas keeps the themed hero background').not.toBe('none');
+
     // --- Edit the first heading in place; autosave must confirm. ---
     const heading = canvas.locator('.pp-heading').first();
     await heading.dblclick();
@@ -103,6 +111,15 @@ test('sketch → generate → edit → export is a standalone site', async ({ pa
     const css = await zip.file('styles.css')!.async('string');
 
     expect(html).toContain(EDITED_HEADLINE);
+
+    // Theme must survive the GrapesJS round-trip: the base stylesheet is
+    // protected (never parsed by GrapesJS), so nothing may be stripped.
+    expect(html, 'exported body keeps the pp-page theme scope').toMatch(/<body[^>]*class="[^"]*pp-page/);
+    expect(css, 'base layer present').toContain('@layer pp-base');
+    expect(css, 'keyframes survive').toContain('@keyframes');
+    expect(css, 'font import survives').toContain('fonts.googleapis.com');
+    expect(css, 'var()-based button background survives').toContain('background: var(--pp-primary)');
+
     for (const leftover of ['supabase.co', 'unsplash.com']) {
       expect(html, `index.html must not reference ${leftover}`).not.toContain(leftover);
       expect(css, `styles.css must not reference ${leftover}`).not.toContain(leftover);
@@ -132,6 +149,21 @@ test('sketch → generate → edit → export is a standalone site', async ({ pa
         .map((img) => img.src),
     );
     expect(brokenImages, 'all exported images load offline').toEqual([]);
+
+    // The standalone page is themed, not a white-on-white skeleton.
+    const standaloneTheme = await page.evaluate(() => {
+      const hero = document.querySelector('.pp-hero');
+      const body = document.body;
+      return {
+        heroBg: hero ? getComputedStyle(hero).backgroundImage : 'missing',
+        bodyFont: getComputedStyle(body).fontFamily,
+      };
+    });
+    expect(standaloneTheme.heroBg, 'standalone hero keeps its themed background').not.toBe('none');
+    expect(standaloneTheme.heroBg).not.toBe('missing');
+    // The renderer's body font stack always includes system-ui; the browser
+    // serif default means the .pp-page scope was lost.
+    expect(standaloneTheme.bodyFont, 'standalone body uses the theme font stack').toContain('system-ui');
     await page.screenshot({ path: testInfo.outputPath('standalone-site.png'), fullPage: true });
   } finally {
     // Remove the test project (and its storage) so runs don't accumulate.
