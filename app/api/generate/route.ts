@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { serverError } from '@/lib/apiError';
 import { downscaleImage, callGeminiVision } from '@/lib/gemini';
 import { validateIR, type PageIR } from '@/utils/ir/schema';
+import { irLooksSane } from '@/utils/ir/sanity';
 import { renderPage } from '@/utils/renderer';
 import { deriveProjectName, DEFAULT_PROJECT_NAME } from '@/utils/projects/name';
 
@@ -44,22 +45,31 @@ export async function POST(req: Request) {
     });
   if (upErr) return serverError('generate: sketch upload', upErr);
 
-  // 2 + 3. Gemini → IR, validate, one retry.
+  // 2 + 3. Vision → IR, validate, one retry. The retry is also spent on a
+  // valid-but-suspiciously-thin result; a thin final attempt is still used
+  // (some sketches genuinely are minimal) rather than failing the user.
   let ir: PageIR | null = null;
+  let thin: PageIR | null = null;
   let lastError = 'unknown';
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const raw = await callGeminiVision(downscaled);
       const result = validateIR(raw);
       if (result.ok) {
-        ir = result.ir;
-        break;
+        if (irLooksSane(result.ir)) {
+          ir = result.ir;
+          break;
+        }
+        thin = result.ir;
+        lastError = 'IR valid but too thin';
+      } else {
+        lastError = result.error;
       }
-      lastError = result.error;
     } catch (e) {
       lastError = e instanceof Error ? e.message : String(e);
     }
   }
+  if (!ir) ir = thin;
   if (!ir) {
     // Log the underlying model/validation detail server-side; return a friendly,
     // non-leaky message (lastError can carry upstream provider text).

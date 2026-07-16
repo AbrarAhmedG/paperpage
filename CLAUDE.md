@@ -44,7 +44,7 @@ The highest-value, highest-risk piece. **One-way render:** the IR generates the 
 6. **Persist** — `{ sketch_path, ir, html, css }` saved to the `projects` row; returns `{ ir, html, css }`.
 
 ### Layout IR (`utils/ir/schema.ts`)
-`Page { theme{ palette{primary,secondary,background,surface,text}, fonts{heading,body}, spacing }, sections[]{ id, role, layout{columns,align}, elements[]{type,text?,level?,variant?,...} } }`. Fonts come from a curated Google Fonts allowlist (unknown fonts coerce to `Inter`); palette colors are validated 6-digit hex; section roles/element types are enums shared with the Gemini `responseSchema`.
+`Page { theme{ palette{primary,secondary,background,surface,text}, fonts{heading,body}, spacing }, sections[]{ id, role, layout{columns,align}, elements[]{type,text?,level?,variant?,label?,...} } }`. Roles: nav/hero/features/gallery/cta/text/footer/testimonials/pricing/stats/contact (unknown roles salvage to `text`, never failing the page). Element types include form (field labels in `items`, submit label in `text`), quote (`text` + `label` attribution), stat (`text` value + `label` caption), table (pipe-delimited rows in `items`). Fonts come from a curated Google Fonts allowlist (unknown fonts coerce to `Inter`); palette colors are validated 6-digit hex; enums are interpolated into the prompt so they stay in sync. `utils/ir/sanity.ts` `irLooksSane()` lets `/api/generate` spend its retry on a valid-but-thin result (a thin final attempt is still accepted).
 
 ---
 
@@ -129,8 +129,11 @@ paperpage/
 ├── proxy.ts                             # route guard (Next 16 middleware→proxy)
 ├── e2e/
 │   ├── full-flow.spec.ts                # Playwright E2E: auth→upload→generate→edit→export standalone
+│   ├── run-corpus.mts                   # sketch regression corpus runner (npm run test:corpus)
+│   ├── corpus/                          # known-tricky user sketches + assertions in run-corpus.mts
 │   ├── make-sketch.mjs                  # regenerates fixtures/sketch.png (synthetic hand-drawn sketch)
 │   └── fixtures/sketch.png
+├── public/sample-sketch.png             # "Try a sample sketch" asset in the uploader
 ├── playwright.config.ts                 # E2E config (prod server on :3000, 1 worker, no retries)
 ├── supabase/migrations/000{1..5}_*.sql  # profiles, projects, sketches bucket, assets, profile full_name
 ├── vitest.config.ts                     # unit tests (@/ alias via vite-tsconfig-paths)
@@ -163,6 +166,7 @@ No service-role key: server routes use the **user-scoped** Supabase server clien
 - `npm run lint` — Next.js lint
 - `npm test` — Vitest (unit tests: name, IR schema, renderer, debounce, bundle)
 - `npm run test:watch` — Vitest watch mode
+- `npm run test:corpus` — sketch regression corpus (`e2e/run-corpus.mts`): re-runs every known-tricky sketch in `e2e/corpus/` through the LIVE prompt + validation + renderer and asserts past fidelity fixes still hold. One vision API call per sketch per run — run on demand after prompt/renderer changes, not in CI. Add an entry whenever a user sketch exposes a bug.
 - `npm run test:e2e` — Playwright full-flow E2E against the production build (`npm run build` first; starts `npm start` itself). Drives auth → new project → upload `e2e/fixtures/sketch.png` → generate (one real vision API call) → GrapesJS edit + autosave → export `.zip` → asserts the export is standalone. Uses a fixed throwaway account (`pp-e2e@example.com`, override via `E2E_EMAIL`/`E2E_PASSWORD`); requires Supabase email confirmation disabled. Test projects are deleted on completion.
 
 ---
@@ -186,7 +190,8 @@ No service-role key: server routes use the **user-scoped** Supabase server clien
 - Email/password auth (`/login`, `/signup` with name capture → `user_metadata.full_name` + `profiles.full_name`), signup-trigger `profiles`, middleware route guards. Dashboard header shows an initials avatar + name (email fallback for pre-name accounts; `utils/user.ts`).
 - Project CRUD (`/api/projects*`) + dashboard: brand header, project cards with live mini-previews (sandboxed `iframe srcdoc` of the generated page), sketch thumbnails (signed URLs) for not-yet-generated uploads, Generated/No-page-yet badges, inline rename, hover-delete with inline confirm (optimistic + revert on failure), relative timestamps, empty-state CTA. `POST /api/generate` auto-names never-renamed projects from the page's hero heading.
 - Generation pipeline: IR Zod schema, deterministic renderer, server-only Gemini Vision wrapper, `POST /api/generate` (sketch → Storage → IR → render → persist, with validation + one retry).
-- Studio: sketch uploader (aurora/glass upload state, example-sketch dropzone with drag-over feedback, staged generation progress, banner errors), GrapesJS editor with curated style/block/layer/device managers and curated Google Fonts, debounced autosave, editable project name.
+- Studio: sketch uploader (aurora/glass upload state, example-sketch dropzone with drag-over feedback, "Try a sample sketch" one-click demo, staged generation progress, banner errors), GrapesJS editor with curated style/block/layer/device managers and curated Google Fonts, debounced autosave, editable project name.
+- Rich sketch vocabulary: contact forms, testimonial quotes, stat rows, tables (schema + prompt + renderer), plus partner-logo strips and structural-label suppression; sketch regression corpus (`npm run test:corpus`) locks fidelity fixes against prompt drift.
 - Assets: `assets` bucket + `project_assets`, `/api/assets`, GrapesJS asset manager wired to Supabase Storage (signed URLs).
 - Export: client-side `.zip` of portable HTML/CSS with images bundled to relative paths.
 - Aurora Glassmorphism theme tokens.

@@ -27,10 +27,11 @@ describe('pageIRSchema', () => {
     expect(r.ok).toBe(true);
   });
 
-  it('rejects an unknown section role', () => {
-    const bad = { ...validIR, sections: [{ ...validIR.sections[0], role: 'carousel' }] };
-    const r = validateIR(bad);
-    expect(r.ok).toBe(false);
+  it('salvages an unknown section role to text instead of rejecting the page', () => {
+    const odd = { ...validIR, sections: [{ ...validIR.sections[0], role: 'carousel' }] };
+    const r = validateIR(odd);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.ir.sections[0].role).toBe('text');
   });
 
   it('rejects a non-hex palette color', () => {
@@ -144,5 +145,62 @@ describe('pageIRSchema', () => {
     const r = validateIR(ir);
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.ir.sections[0].background).toBe('gradient');
+  });
+});
+
+describe('form / quote / stat / table vocabulary', () => {
+  const mk = (section: object) => ({
+    ...validIR,
+    sections: [{ id: 'x', role: 'text', layout: { columns: 1, align: 'start' }, ...section }],
+  });
+
+  it('accepts the new element types with their fields', () => {
+    const r = validateIR(
+      mk({
+        elements: [
+          { type: 'form', items: ['Name', 'Email', 'Message'], text: 'Send message' },
+          { type: 'quote', text: 'Great product!', label: 'Jane Doe, CEO' },
+          { type: 'stat', text: '500+', label: 'Happy users' },
+          { type: 'table', items: ['Plan|Price', 'Basic|$9', 'Pro|$29'] },
+        ],
+      }),
+    );
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.ir.sections[0].elements.map((e) => e.type)).toEqual(['form', 'quote', 'stat', 'table']);
+      expect(r.ir.sections[0].elements[1].label).toBe('Jane Doe, CEO');
+    }
+  });
+
+  it('maps common aliases onto the new types', () => {
+    const r = validateIR(
+      mk({
+        elements: [
+          { type: 'contact-form', items: ['Email'] },
+          { type: 'testimonial', text: 'Loved it' },
+          { type: 'metric', text: '12' },
+          { type: 'pricing-table', items: ['A|B'] },
+        ],
+      }),
+    );
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.ir.sections[0].elements.map((e) => e.type)).toEqual(['form', 'quote', 'stat', 'table']);
+  });
+
+  it('accepts the new section roles and their aliases', () => {
+    for (const [role, expected] of [
+      ['testimonials', 'testimonials'],
+      ['reviews', 'testimonials'],
+      ['pricing', 'pricing'],
+      ['plans', 'pricing'],
+      ['stats', 'stats'],
+      ['metrics', 'stats'],
+      ['contact', 'contact'],
+      ['contact-us', 'contact'],
+    ] as const) {
+      const r = validateIR(mk({ role, elements: [{ type: 'paragraph', text: 'x' }] }));
+      expect(r.ok, role).toBe(true);
+      if (r.ok) expect(r.ir.sections[0].role, role).toBe(expected);
+    }
   });
 });

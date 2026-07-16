@@ -8,13 +8,13 @@ export const CURATED_PALETTES = {
 } as const;
 
 export const SECTION_ROLES = [
-  'nav', 'hero', 'features', 'gallery', 'cta', 'text', 'footer',
+  'nav', 'hero', 'features', 'gallery', 'cta', 'text', 'footer', 'testimonials', 'pricing', 'stats', 'contact',
 ] as const;
 
 export const SECTION_BACKGROUNDS = ['default', 'surface', 'primary', 'gradient', 'dark'] as const;
 
 export const ELEMENT_TYPES = [
-  'heading', 'paragraph', 'button', 'image', 'list', 'input', 'logo', 'divider', 'tabs', 'video',
+  'heading', 'paragraph', 'button', 'image', 'list', 'input', 'logo', 'divider', 'tabs', 'video', 'form', 'quote', 'stat', 'table',
 ] as const;
 
 type ElementType = (typeof ELEMENT_TYPES)[number];
@@ -33,10 +33,14 @@ const ELEMENT_ALIASES: Record<string, ElementType> = {
   img: 'image', picture: 'image', photo: 'image', icon: 'image', avatar: 'image', graphic: 'image', illustration: 'image',
   brand: 'logo', navbar: 'logo', wordmark: 'logo',
   ul: 'list', ol: 'list', menu: 'list', navmenu: 'list', bullets: 'list', links: 'list', nav: 'list',
-  field: 'input', textbox: 'input', textfield: 'input', search: 'input', form: 'input', email: 'input', textarea: 'input',
+  field: 'input', textbox: 'input', textfield: 'input', search: 'input', email: 'input', textarea: 'input',
   hr: 'divider', line: 'divider', separator: 'divider', rule: 'divider', spacer: 'divider', break: 'divider',
   tab: 'tabs', tabbar: 'tabs', pagination: 'tabs', pager: 'tabs', breadcrumb: 'tabs', breadcrumbs: 'tabs', steps: 'tabs', stepper: 'tabs', pages: 'tabs',
   player: 'video', videoplayer: 'video', mediaplayer: 'video', movie: 'video', media: 'video',
+  contactform: 'form', signupform: 'form', loginform: 'form', fields: 'form',
+  testimonial: 'quote', blockquote: 'quote', review: 'quote', quotation: 'quote',
+  stats: 'stat', number: 'stat', metric: 'stat', counter: 'stat', kpi: 'stat', figure: 'stat',
+  pricingtable: 'table', datatable: 'table', comparison: 'table', pricing: 'table', matrix: 'table',
 };
 const elementType = z.preprocess((v) => {
   const n = normKey(v);
@@ -54,12 +58,20 @@ const ROLE_ALIASES: Record<string, SectionRole> = {
   calltoaction: 'cta', signup: 'cta', subscribe: 'cta', newsletter: 'cta',
   content: 'text', paragraph: 'text', about: 'text', body: 'text', section: 'text', textblock: 'text',
   foot: 'footer', bottom: 'footer', footersection: 'footer',
+  quotes: 'testimonials', reviews: 'testimonials', testimonial: 'testimonials', socialproof: 'testimonials',
+  plans: 'pricing', prices: 'pricing', pricingsection: 'pricing',
+  metrics: 'stats', numbers: 'stats', stat: 'stats', kpis: 'stats',
+  contactus: 'contact', contactform: 'contact', form: 'contact', getintouch: 'contact',
 };
-const sectionRole = z.preprocess((v) => {
-  const n = normKey(v);
-  if ((SECTION_ROLES as readonly string[]).includes(n)) return n;
-  return ROLE_ALIASES[n] ?? v;
-}, z.enum(SECTION_ROLES));
+// Unknown roles salvage to 'text' (a generic content band) rather than rejecting
+// the whole page — a single odd role must never cost the user their generation.
+const sectionRole = z
+  .preprocess((v) => {
+    const n = normKey(v);
+    if ((SECTION_ROLES as readonly string[]).includes(n)) return n;
+    return ROLE_ALIASES[n] ?? v;
+  }, z.enum(SECTION_ROLES))
+  .catch('text');
 
 // 6-digit hex; salvage 3-digit (#abc) and missing-# forms. Non-hex words (e.g. "red") still reject.
 const hexColor = z.preprocess((v) => {
@@ -82,6 +94,8 @@ const elementSchema = z.object({
   items: z.array(z.string().max(200)).max(20).optional().catch(undefined),
   placeholder: z.string().max(120).optional(),
   alt: z.string().max(200).optional(),
+  // Secondary line for elements that carry one: a stat's caption, a quote's attribution.
+  label: z.string().max(200).optional(),
   // Explicit CSS-grid placement (1-indexed). Clamped to the section's column
   // count by the renderer; here we only coerce to a positive int, dropping junk.
   col: z.coerce.number().int().min(1).optional().catch(undefined),

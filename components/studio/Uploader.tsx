@@ -36,6 +36,17 @@ export default function Uploader({
     setError(null);
   }
 
+  async function useSample() {
+    if (loading) return;
+    try {
+      const res = await fetch('/sample-sketch.png');
+      const blob = await res.blob();
+      choose(new File([blob], 'sample-sketch.png', { type: 'image/png' }));
+    } catch {
+      setError('Could not load the sample sketch. Try uploading your own.');
+    }
+  }
+
   async function generate() {
     if (!file) return;
     setStatus('loading');
@@ -135,6 +146,15 @@ export default function Uploader({
             onChange={(e) => choose(e.target.files?.[0] ?? null)}
           />
         </div>
+
+        {!preview && (
+          <p className="mt-3 text-center text-sm text-slate-500">
+            No sketch handy?{' '}
+            <button onClick={useSample} className="font-semibold text-mint-500 hover:underline">
+              Try a sample sketch
+            </button>
+          </p>
+        )}
 
         {error && (
           <p className="mt-4 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">

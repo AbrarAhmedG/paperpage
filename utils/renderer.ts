@@ -292,6 +292,46 @@ function renderElement(el: Element, ctx: RenderCtx, role: Section['role']): stri
     }
     case 'video':
       return `<div class="pp-video"><span class="pp-video__play" aria-hidden="true"></span></div>`;
+    case 'form': {
+      const fields = el.items && el.items.length ? el.items : ['Name', 'Email', 'Message'];
+      const controls = fields
+        .map((raw) => {
+          const label = esc(raw) || 'Field';
+          const lc = raw.toLowerCase();
+          const control = /message|comment|enquiry|inquiry|question|feedback|detail/.test(lc)
+            ? `<textarea class="pp-input pp-textarea" rows="4" placeholder="${label}"></textarea>`
+            : `<input class="pp-input" type="${/e-?mail/.test(lc) ? 'email' : 'text'}" placeholder="${label}" />`;
+          return `<label class="pp-field"><span class="pp-field__label">${label}</span>${control}</label>`;
+        })
+        .join('');
+      const submit = esc(el.text) || 'Send message';
+      return `<form class="pp-form" action="#">${controls}<button class="pp-button pp-button--primary" type="submit">${submit}</button></form>`;
+    }
+    case 'quote': {
+      const text = esc(el.text) || 'This completely changed how we work — highly recommended.';
+      const author = esc(el.label);
+      return (
+        `<figure class="pp-quote"><blockquote class="pp-quote__text">${text}</blockquote>` +
+        (author ? `<figcaption class="pp-quote__author">${author}</figcaption>` : '') +
+        `</figure>`
+      );
+    }
+    case 'stat': {
+      const value = esc(el.text) || '100+';
+      const label = esc(el.label) || 'Customers';
+      return `<div class="pp-stat"><span class="pp-stat__value">${value}</span><span class="pp-stat__label">${label}</span></div>`;
+    }
+    case 'table': {
+      const rows = (el.items && el.items.length ? el.items : ['Item|Detail', 'One|—', 'Two|—']).map((r) =>
+        r.split('|').map((c) => esc(c.trim())),
+      );
+      const [head, ...body] = rows;
+      const thead = `<thead><tr>${head.map((c) => `<th>${c}</th>`).join('')}</tr></thead>`;
+      const tbody = body.length
+        ? `<tbody>${body.map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody>`
+        : '';
+      return `<div class="pp-tablewrap"><table class="pp-table">${thead}${tbody}</table></div>`;
+    }
     default:
       return '';
   }
@@ -546,6 +586,25 @@ h3.pp-heading { font-size: 1.28rem; }
 .pp-list li { margin: 0.35rem 0; }
 .pp-list li::marker { color: var(--pp-primary); }
 .pp-input { width: 100%; padding: 0.8rem 1.1rem; border: 1px solid var(--pp-border); border-radius: 12px; font: inherit; background: #fff; }
+.pp-form { display: flex; flex-direction: column; gap: 1rem; width: 100%; max-width: 560px; text-align: left; }
+.pp-section[data-align="center"] .pp-form { margin-inline: auto; }
+.pp-field { display: flex; flex-direction: column; gap: 0.35rem; }
+.pp-field__label { font-size: 0.82rem; font-weight: 600; color: color-mix(in srgb, var(--pp-text) 75%, transparent); }
+.pp-textarea { resize: vertical; min-height: 96px; }
+.pp-form .pp-button { align-self: flex-start; border: 0; cursor: pointer; font: inherit; font-weight: 700; }
+.pp-quote { margin: 0; padding: 1.6rem 1.8rem; border-radius: var(--pp-radius); background: var(--pp-surface); border: 1px solid var(--pp-border); box-shadow: var(--pp-shadow-sm); position: relative; }
+.pp-quote::before { content: '\\201C'; font-family: var(--pp-font-heading); font-size: 3rem; line-height: 1; color: var(--pp-primary); display: block; margin-bottom: 0.25rem; }
+.pp-quote__text { margin: 0; font-size: 1.05rem; line-height: 1.6; font-style: italic; }
+.pp-quote__author { margin-top: 0.9rem; font-size: 0.85rem; font-weight: 700; color: var(--pp-primary); }
+.pp-stat { display: flex; flex-direction: column; gap: 0.2rem; align-items: inherit; }
+.pp-stat__value { font-family: var(--pp-font-heading); font-weight: 800; font-size: clamp(2rem, 4.5vw, 3rem); letter-spacing: -0.03em; color: var(--pp-primary); line-height: 1.05; }
+.pp-stat__label { font-size: 0.9rem; font-weight: 600; color: color-mix(in srgb, var(--pp-text) 65%, transparent); }
+.pp-stats .pp-container { align-items: center; text-align: center; }
+.pp-tablewrap { width: 100%; overflow-x: auto; border: 1px solid var(--pp-border); border-radius: var(--pp-radius); box-shadow: var(--pp-shadow-sm); }
+.pp-table { width: 100%; border-collapse: collapse; font-size: 0.95rem; background: #fff; }
+.pp-table th, .pp-table td { padding: 0.85rem 1.1rem; text-align: left; border-bottom: 1px solid var(--pp-border); }
+.pp-table thead th { font-weight: 700; background: color-mix(in srgb, var(--pp-primary) 7%, #fff); }
+.pp-table tbody tr:last-child td { border-bottom: 0; }
 .pp-logo { font-family: var(--pp-font-heading); font-weight: 850; font-size: 1.35rem; letter-spacing: -0.03em; color: var(--pp-text); display: inline-flex; align-items: center; gap: 0.55rem; }
 .pp-logo__mark { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; color: #fff; background: linear-gradient(135deg, var(--pp-primary), var(--pp-secondary)); box-shadow: var(--pp-shadow-sm); }
 .pp-logo__mark svg { width: 17px; height: 17px; }

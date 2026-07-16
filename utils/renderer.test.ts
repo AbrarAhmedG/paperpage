@@ -660,3 +660,60 @@ describe('partner logo strips and region-label echoes', () => {
     expect(css).toContain('.pp-logochip');
   });
 });
+
+describe('form, quote, stat and table elements', () => {
+  const theme: PageIR['theme'] = {
+    palette: { primary: '#14b8a6', secondary: '#facc15', background: '#ffffff', surface: '#f8fafc', text: '#0f172a' },
+    fonts: { heading: 'Poppins', body: 'Inter' },
+    spacing: 'normal',
+  };
+  const mk = (elements: PageIR['sections'][0]['elements'], role: PageIR['sections'][0]['role'] = 'text'): PageIR => ({
+    theme,
+    sections: [{ id: 'x', role, background: 'default', layout: { columns: 1, align: 'start' }, elements }],
+  });
+
+  it('renders a contact form with labeled fields, a textarea for message-like fields, and a submit button', () => {
+    const { html, css } = renderPage(mk([{ type: 'form', items: ['Name', 'Email', 'Message'], text: 'Send it' }], 'contact'));
+    expect(html).toContain('class="pp-form"');
+    expect(html).toContain('Name');
+    expect(html).toContain('type="email"');
+    expect(html).toContain('<textarea');
+    expect(html).toContain('Send it');
+    expect(html).toContain('type="submit"');
+    expect(css).toContain('.pp-form');
+  });
+
+  it('renders a default form when the sketch gave no field labels', () => {
+    const { html } = renderPage(mk([{ type: 'form' }]));
+    expect(html).toContain('class="pp-form"');
+    expect(html).toContain('<textarea');
+    expect(html).toContain('type="submit"');
+  });
+
+  it('renders a quote with attribution and escapes its text', () => {
+    const { html, css } = renderPage(mk([{ type: 'quote', text: 'Best <tool> ever', label: 'Jane Doe, CEO' }], 'testimonials'));
+    expect(html).toContain('class="pp-quote"');
+    expect(html).toContain('<blockquote');
+    expect(html).toContain('Best &lt;tool&gt; ever');
+    expect(html).toContain('Jane Doe, CEO');
+    expect(css).toContain('.pp-quote');
+  });
+
+  it('renders a stat with a large value and caption', () => {
+    const { html, css } = renderPage(mk([{ type: 'stat', text: '500+', label: 'Happy users' }], 'stats'));
+    expect(html).toContain('class="pp-stat"');
+    expect(html).toContain('500+');
+    expect(html).toContain('Happy users');
+    expect(css).toContain('.pp-stat__value');
+  });
+
+  it('renders a table with a header row inside a scroll wrapper, escaped', () => {
+    const { html, css } = renderPage(mk([{ type: 'table', items: ['Plan|Price', 'Basic|$9', 'Pro <b>|$29'] }], 'pricing'));
+    expect(html).toContain('class="pp-tablewrap"');
+    expect(html).toContain('<th');
+    expect(html).toContain('Plan');
+    expect(html).toContain('$29');
+    expect(html).toContain('Pro &lt;b&gt;');
+    expect(css).toContain('.pp-table');
+  });
+});
