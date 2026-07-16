@@ -34,6 +34,41 @@ function icon(name: string): string {
 // Rotating icons for feature cards (only used when a card has no image of its own).
 const FEATURE_ICONS = ['zap', 'shield', 'chart', 'layers', 'sparkles', 'rocket'];
 
+// Social-network glyphs (complete inline SVGs — brand marks are filled shapes,
+// unlike the stroked utility icons above). Static strings authored here, never
+// derived from the IR, so they stay safe by construction.
+const SOCIAL_STROKE = `<svg ${ICON_ATTRS}>`;
+const SOCIAL_ICONS: Record<string, string> = {
+  facebook:
+    '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 4.99 3.66 9.13 8.44 9.88v-6.99H7.9V12h2.54V9.8c0-2.5 1.49-3.89 3.77-3.89 1.09 0 2.23.2 2.23.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56V12h2.78l-.44 2.89h-2.34v6.99C18.34 21.13 22 16.99 22 12z"/></svg>',
+  twitter:
+    '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.67l7.73-8.84L1.25 2.25h6.83l4.71 6.23zm-1.16 17.52h1.83L7.08 4.13H5.12z"/></svg>',
+  linkedin:
+    '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6.94 5a2 2 0 1 1-4-.01 2 2 0 0 1 4 .01zM7 8.48H3V21h4zm6.32 0H9.34V21h3.94v-6.57c0-3.66 4.77-4 4.77 0V21H22v-7.93c0-6.17-7.06-5.94-8.72-2.91z"/></svg>',
+  instagram:
+    `${SOCIAL_STROKE}<rect x="2.5" y="2.5" width="19" height="19" rx="5.5"/><circle cx="12" cy="12" r="4.3"/><circle cx="17.6" cy="6.4" r="1.3" fill="currentColor" stroke="none"/></svg>`,
+  youtube:
+    `${SOCIAL_STROKE}<rect x="2" y="5.5" width="20" height="13" rx="4"/><path d="M10.2 9.5l4.8 2.5-4.8 2.5z" fill="currentColor" stroke="none"/></svg>`,
+  github:
+    '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55v-2.17c-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.23-1.28-5.23-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.12 3.05.74.81 1.18 1.83 1.18 3.09 0 4.41-2.69 5.38-5.25 5.66.41.36.78 1.05.78 2.13v3.16c0 .3.2.67.8.55A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"/></svg>',
+  tiktok:
+    '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.6 5.82A4.28 4.28 0 0 1 15.54 3h-3.09v12.4a2.59 2.59 0 1 1-2.59-2.59c.27 0 .53.04.77.12V9.77a5.76 5.76 0 0 0-.77-.05 5.66 5.66 0 1 0 5.66 5.66V9.01a7.35 7.35 0 0 0 4.3 1.38V7.3a4.28 4.28 0 0 1-3.22-1.48z"/></svg>',
+  email: `${SOCIAL_STROKE}<rect x="2.5" y="4.5" width="19" height="15" rx="3"/><path d="M3 6l9 7 9-7"/></svg>`,
+};
+const SOCIAL_ALIASES: Record<string, string> = {
+  fb: 'facebook',
+  x: 'twitter',
+  insta: 'instagram',
+  ig: 'instagram',
+  yt: 'youtube',
+  mail: 'email',
+  gmail: 'email',
+};
+function socialIcon(label: string): string | undefined {
+  const key = label.toLowerCase().replace(/[^a-z]/g, '');
+  return SOCIAL_ICONS[SOCIAL_ALIASES[key] ?? key];
+}
+
 // ---------------------------------------------------------------------------
 // Palette-derived mesh placeholder. A layered mesh (linear base + two radial
 // spots in primary/secondary) with a soft "image" glyph, so an empty media slot
@@ -194,6 +229,17 @@ function renderElement(el: Element, ctx: RenderCtx, role: Section['role']): stri
     }
     case 'list': {
       const src = el.items && el.items.length ? el.items : LIST_PLACEHOLDER;
+      // A footer list naming ONLY social networks (the sketch's "facebook /
+      // linkedin" corner) renders as a horizontal icon-link row, not bullets.
+      if (role === 'footer') {
+        const icons = src.map(socialIcon);
+        if (icons.every(Boolean)) {
+          const links = src
+            .map((label, i) => `<a class="pp-social__link" href="#" aria-label="${esc(label)}">${icons[i]}</a>`)
+            .join('');
+          return `<div class="pp-social">${links}</div>`;
+        }
+      }
       const items = src.map((i) => `<li>${esc(i)}</li>`).join('');
       return `<ul class="pp-list">${items}</ul>`;
     }
@@ -533,6 +579,12 @@ h3.pp-heading { font-size: 1.28rem; }
 .pp-footer .pp-logo, .pp-footer .pp-heading { color: #fff; }
 .pp-footer .pp-paragraph { color: rgba(255, 255, 255, 0.62); margin: 0; }
 .pp-footer .pp-list { list-style: none; padding: 0; }
+
+/* Footer social row — a footer list naming only social networks becomes icon links */
+.pp-social { display: flex; flex-wrap: wrap; gap: 0.7rem; }
+.pp-social__link { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: currentColor; background: color-mix(in srgb, currentColor 10%, transparent); border: 1px solid color-mix(in srgb, currentColor 24%, transparent); transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease; }
+.pp-social__link:hover { background: var(--pp-primary); border-color: transparent; color: #fff; transform: translateY(-2px); }
+.pp-social__link svg { width: 18px; height: 18px; display: block; }
 
 /* Section background variants (visual rhythm) */
 .pp-bg-surface { background: var(--pp-surface); }

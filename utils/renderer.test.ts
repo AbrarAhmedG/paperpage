@@ -508,6 +508,53 @@ describe('renderPage', () => {
     expect(css).toContain('.pp-image--banner');
   });
 
+  it('renders a footer list of social networks as an icon-link row', () => {
+    const f: PageIR = {
+      ...ir,
+      sections: [
+        { id: 'f', role: 'footer', background: 'dark', layout: { columns: 2, align: 'start' }, elements: [
+          { type: 'paragraph', text: '© 2026', col: 1 },
+          { type: 'list', items: ['Facebook', 'LinkedIn', 'X'], col: 2 },
+        ] },
+      ],
+    };
+    const { html, css } = renderPage(f);
+    expect(html).toContain('class="pp-social"');
+    expect((html.match(/pp-social__link/g) || []).length).toBe(3);
+    expect(html).toContain('aria-label="Facebook"'); // accessible label survives
+    expect(html).toMatch(/aria-label="LinkedIn"><svg/); // inline brand glyph
+    expect(html).not.toContain('<li>Facebook</li>'); // no bullet list
+    expect(css).toContain('.pp-social__link');
+  });
+
+  it('keeps footer lists with non-social items as plain lists', () => {
+    const f: PageIR = {
+      ...ir,
+      sections: [
+        { id: 'f', role: 'footer', background: 'dark', layout: { columns: 1, align: 'start' }, elements: [
+          { type: 'list', items: ['Facebook', 'Privacy Policy'] }, // mixed -> not a social row
+        ] },
+      ],
+    };
+    const { html } = renderPage(f);
+    expect(html).not.toContain('pp-social');
+    expect(html).toContain('<li>Privacy Policy</li>');
+  });
+
+  it('keeps social names outside the footer as a plain list (nav menus stay text)', () => {
+    const n: PageIR = {
+      ...ir,
+      sections: [
+        { id: 'n', role: 'nav', background: 'default', layout: { columns: 1, align: 'start' }, elements: [
+          { type: 'list', items: ['Facebook', 'Instagram'] },
+        ] },
+      ],
+    };
+    const { html } = renderPage(n);
+    expect(html).not.toContain('pp-social');
+    expect(html).toContain('<li>Facebook</li>');
+  });
+
   it('wraps CTA content in an inset gradient panel', () => {
     const c: PageIR = {
       ...ir,
