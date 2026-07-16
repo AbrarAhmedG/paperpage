@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { serverError } from '@/lib/apiError';
+import { isTransientAIError } from '@/lib/aiErrors';
 import { downscaleImage, callGeminiVision } from '@/lib/gemini';
 import { validateIR, type PageIR } from '@/utils/ir/schema';
 import { irLooksSane } from '@/utils/ir/sanity';
@@ -45,16 +46,22 @@ export async function POST(req: Request) {
     });
   if (upErr) return serverError('generate: sketch upload', upErr);
 
-  // 2 + 3. Vision → IR, validate, one retry. The retry is also spent on a
-  // valid-but-suspiciously-thin result; a thin final attempt is still used
-  // (some sketches genuinely are minimal) rather than failing the user.
+  // 2 + 3. Vision → IR, validate, retry. Interpretation-quality failures
+  // (invalid or suspiciously-thin IR) get one immediate retry, as before.
+  // Transient provider failures (Anthropic 529 Overloaded, rate limits, 5xx)
+  // get a THIRD attempt with backoff — an immediate retry lands in the same
+  // overload window — bounded by a time budget so the function never exceeds
+  // its 60s limit. A thin final attempt is still used rather than failing.
+  const started = Date.now();
   let ir: PageIR | null = null;
   let thin: PageIR | null = null;
   let lastError = 'unknown';
-  for (let attempt = 0; attempt < 2; attempt++) {
+  let transient = false;
+  for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const raw = await callGeminiVision(downscaled);
       const result = validateIR(raw);
+      transient = false;
       if (result.ok) {
         if (irLooksSane(result.ir)) {
           ir = result.ir;
@@ -65,8 +72,15 @@ export async function POST(req: Request) {
       } else {
         lastError = result.error;
       }
+      if (attempt >= 1) break; // quality failures keep the original 2-attempt cap
     } catch (e) {
       lastError = e instanceof Error ? e.message : String(e);
+      transient = isTransientAIError(e);
+      if (!transient && attempt >= 1) break;
+      if (transient) {
+        if (Date.now() - started > 30_000 || attempt === 2) break;
+        await new Promise((r) => setTimeout(r, 2500 * (attempt + 1)));
+      }
     }
   }
   if (!ir) ir = thin;
@@ -74,6 +88,12 @@ export async function POST(req: Request) {
     // Log the underlying model/validation detail server-side; return a friendly,
     // non-leaky message (lastError can carry upstream provider text).
     console.error('[api] generate: interpret failed:', lastError);
+    if (transient) {
+      return NextResponse.json(
+        { error: 'The AI service is briefly overloaded — your sketch is fine. Try Generate again in a minute.' },
+        { status: 503 },
+      );
+    }
     return NextResponse.json(
       { error: 'Could not interpret your sketch. Try a clearer, higher-contrast photo of a page layout.' },
       { status: 422 },
