@@ -41,7 +41,15 @@ export default async function DashboardPage() {
     <main className="relative min-h-screen bg-slate-50 text-slate-800">
       <div className="absolute inset-0 bg-aurora-gradient z-0 pointer-events-none" />
       <div className="relative z-10 max-w-5xl mx-auto px-6 py-12">
-        <DashboardClient initial={summaries} email={user.email ?? ''} />
+        <DashboardClient
+          initial={summaries}
+          email={user.email ?? ''}
+          userName={
+            typeof user.user_metadata?.full_name === 'string' && user.user_metadata.full_name.trim()
+              ? user.user_metadata.full_name.trim()
+              : null
+          }
+        />
       </div>
     </main>
   );

@@ -4,14 +4,17 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { initialsFor } from '@/utils/user';
 import ProjectCard, { type ProjectSummary } from './ProjectCard';
 
 export default function DashboardClient({
   initial,
   email,
+  userName,
 }: {
   initial: ProjectSummary[];
   email: string;
+  userName: string | null;
 }) {
   const router = useRouter();
   const [projects, setProjects] = useState<ProjectSummary[]>(initial);
@@ -59,7 +62,15 @@ export default function DashboardClient({
           Paper<span className="text-mint-500">Page</span>
         </Link>
         <div className="flex items-center gap-4 text-sm text-slate-500">
-          <span className="hidden sm:inline">{email}</span>
+          <span className="flex items-center gap-2.5" title={email}>
+            <span
+              aria-hidden="true"
+              className="h-8 w-8 rounded-full bg-gradient-to-br from-mint-400 to-gold-400 text-white text-xs font-bold flex items-center justify-center shadow"
+            >
+              {initialsFor(userName ?? email)}
+            </span>
+            <span className="hidden sm:inline font-medium text-slate-700">{userName ?? email}</span>
+          </span>
           <button onClick={signOut} className="hover:text-slate-800 hover:underline">
             Sign out
           </button>

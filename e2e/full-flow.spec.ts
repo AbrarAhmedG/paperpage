@@ -32,6 +32,7 @@ async function signIn(page: Page) {
 
   // First run: the account doesn't exist yet — sign up.
   await page.goto('/signup');
+  await page.fill('input[type=text]', 'PaperPage E2E');
   await page.fill('input[type=email]', EMAIL);
   await page.fill('input[type=password]', PASSWORD);
   await page.click('button[type=submit]');

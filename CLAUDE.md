@@ -81,7 +81,7 @@ Migrations live in `supabase/migrations/` and are applied by the operator (Supab
 
 | Table | Key columns | Notes |
 |---|---|---|
-| `profiles` | `id → auth.users`, `email`, `created_at` | Auto-created by a `handle_new_user()` signup trigger |
+| `profiles` | `id → auth.users`, `email`, `full_name`, `created_at` | Auto-created by a `handle_new_user()` signup trigger; `full_name` mirrors the auth `user_metadata.full_name` captured on the signup form |
 | `projects` | `id`, `user_id`, `name`, `sketch_path`, `ir jsonb`, `html`, `css`, `created_at`, `updated_at` | `html`/`css` are the source of truth after generation; `ir` is the seed |
 | `project_assets` | `id`, `project_id`, `user_id`, `storage_path`, `filename`, `created_at` | One row per uploaded image |
 
@@ -132,7 +132,7 @@ paperpage/
 │   ├── make-sketch.mjs                  # regenerates fixtures/sketch.png (synthetic hand-drawn sketch)
 │   └── fixtures/sketch.png
 ├── playwright.config.ts                 # E2E config (prod server on :3000, 1 worker, no retries)
-├── supabase/migrations/000{1..4}_*.sql  # profiles, projects, sketches bucket, assets
+├── supabase/migrations/000{1..5}_*.sql  # profiles, projects, sketches bucket, assets, profile full_name
 ├── vitest.config.ts                     # unit tests (@/ alias via vite-tsconfig-paths)
 ├── tailwind.config.ts                   # Aurora tokens
 └── tsconfig.json                        # @/* path alias → ./*
@@ -183,7 +183,7 @@ No service-role key: server routes use the **user-scoped** Supabase server clien
 ## Current Implementation Status
 
 **Implemented (v1)**
-- Email/password auth (`/login`, `/signup`), signup-trigger `profiles`, middleware route guards.
+- Email/password auth (`/login`, `/signup` with name capture → `user_metadata.full_name` + `profiles.full_name`), signup-trigger `profiles`, middleware route guards. Dashboard header shows an initials avatar + name (email fallback for pre-name accounts; `utils/user.ts`).
 - Project CRUD (`/api/projects*`) + dashboard: brand header, project cards with live mini-previews (sandboxed `iframe srcdoc` of the generated page), sketch thumbnails (signed URLs) for not-yet-generated uploads, Generated/No-page-yet badges, inline rename, hover-delete with inline confirm (optimistic + revert on failure), relative timestamps, empty-state CTA. `POST /api/generate` auto-names never-renamed projects from the page's hero heading.
 - Generation pipeline: IR Zod schema, deterministic renderer, server-only Gemini Vision wrapper, `POST /api/generate` (sketch → Storage → IR → render → persist, with validation + one retry).
 - Studio: sketch uploader (aurora/glass upload state, example-sketch dropzone with drag-over feedback, staged generation progress, banner errors), GrapesJS editor with curated style/block/layer/device managers and curated Google Fonts, debounced autosave, editable project name.

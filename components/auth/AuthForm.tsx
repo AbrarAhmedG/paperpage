@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 
 export default function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
   const router = useRouter();
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -20,7 +21,11 @@ export default function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
     setLoading(true);
     const supabase = createClient();
     const fn = isSignup
-      ? supabase.auth.signUp({ email, password })
+      ? supabase.auth.signUp({
+          email,
+          password,
+          options: { data: { full_name: name.trim() } },
+        })
       : supabase.auth.signInWithPassword({ email, password });
     const { error } = await fn;
     setLoading(false);
@@ -47,6 +52,21 @@ export default function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
         className="relative z-10 w-full max-w-md p-8 rounded-2xl bg-surface backdrop-blur-xl border border-border shadow-glass"
       >
         <h1 className="text-3xl font-extrabold mb-6">{isSignup ? 'Create your account' : 'Welcome back'}</h1>
+        {isSignup && (
+          <>
+            <label className="block text-sm font-medium mb-1">Name</label>
+            <input
+              type="text"
+              required
+              minLength={2}
+              maxLength={80}
+              autoComplete="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full mb-4 px-4 py-3 rounded-xl bg-white/70 border border-border outline-none focus:ring-2 focus:ring-mint-400"
+            />
+          </>
+        )}
         <label className="block text-sm font-medium mb-1">Email</label>
         <input
           type="email"
