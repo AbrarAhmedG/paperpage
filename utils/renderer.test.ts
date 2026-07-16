@@ -699,6 +699,23 @@ describe('form, quote, stat and table elements', () => {
     expect(css).toContain('.pp-quote');
   });
 
+  it('folds an adjacent avatar image into the quote card attribution', () => {
+    const { html } = renderPage(
+      mk(
+        [
+          { type: 'quote', text: 'Loved it.', label: 'Jane Doe', col: 1 },
+          { type: 'image', alt: 'avatar', col: 1 },
+        ],
+        'testimonials',
+      ),
+    );
+    const figure = html.match(/<figure class="pp-quote">[\s\S]*?<\/figure>/)?.[0] ?? '';
+    expect(figure).toContain('pp-quote__avatar');
+    expect(figure).toContain('Jane Doe');
+    // no orphaned avatar rendered outside the card
+    expect(html).not.toContain('pp-image--avatar');
+  });
+
   it('renders a stat with a large value and caption', () => {
     const { html, css } = renderPage(mk([{ type: 'stat', text: '500+', label: 'Happy users' }], 'stats'));
     expect(html).toContain('class="pp-stat"');

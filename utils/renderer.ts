@@ -194,6 +194,24 @@ function logoChip(ctx: RenderCtx, alt: string | undefined): string {
   return `<img class="pp-logochip" data-pp-asset="1" src="${ph}" alt="${esc(alt) || 'logo'}" />`;
 }
 
+// A testimonial card. The sketch usually draws the avatar + name INSIDE the
+// card, so an adjacent avatar image is folded into the attribution row.
+function renderQuote(el: Element, avatar: Element | undefined, ctx: RenderCtx): string {
+  const text = esc(el.text) || 'This completely changed how we work — highly recommended.';
+  const author = esc(el.label);
+  let attribution = '';
+  if (avatar || author) {
+    const img = avatar
+      ? `<img class="pp-quote__avatar" data-pp-asset="1" src="${placeholderSvg(ctx.primary, ctx.secondary, ctx.img.v++)}" alt="${esc(avatar.alt)}" />`
+      : '';
+    attribution = `<figcaption class="pp-quote__author">${img}${author || ''}</figcaption>`;
+  }
+  return `<figure class="pp-quote"><blockquote class="pp-quote__text">${text}</blockquote>${attribution}</figure>`;
+}
+
+const isAvatarImage = (e: Element): boolean =>
+  e.type === 'image' && /avatar|icon|circle|profile|portrait|person/.test((e.alt || '').toLowerCase());
+
 // Carousel frame — a curated photo slide with prev/next arrows and dots.
 // Decorative chrome only (no JS); GrapesJS owns the page after generation.
 function renderCarousel(alt: string, ctx: RenderCtx): string {
@@ -307,15 +325,8 @@ function renderElement(el: Element, ctx: RenderCtx, role: Section['role']): stri
       const submit = esc(el.text) || 'Send message';
       return `<form class="pp-form" action="#">${controls}<button class="pp-button pp-button--primary" type="submit">${submit}</button></form>`;
     }
-    case 'quote': {
-      const text = esc(el.text) || 'This completely changed how we work — highly recommended.';
-      const author = esc(el.label);
-      return (
-        `<figure class="pp-quote"><blockquote class="pp-quote__text">${text}</blockquote>` +
-        (author ? `<figcaption class="pp-quote__author">${author}</figcaption>` : '') +
-        `</figure>`
-      );
-    }
+    case 'quote':
+      return renderQuote(el, (el as Element & { __avatar?: Element }).__avatar, ctx);
     case 'stat': {
       const value = esc(el.text) || '100+';
       const label = esc(el.label) || 'Customers';
@@ -390,6 +401,24 @@ function renderCellInner(els: Element[], ctx: RenderCtx, role: Section['role']):
 function renderSection(section: Section, ctx: RenderCtx, index: number): string {
   // Defense-in-depth against the model echoing region names as visible copy.
   section = { ...section, elements: section.elements.filter((e) => !isStructuralHeading(e)) };
+  // A quote and its adjacent avatar (either order, same drawn card) merge into
+  // one testimonial card — the sketch draws the face INSIDE the card.
+  const sameCell = (a: Element, b: Element) => a.col == null || b.col == null || a.col === b.col;
+  const merged: Element[] = [];
+  for (let i = 0; i < section.elements.length; i++) {
+    const cur = section.elements[i];
+    const nxt = section.elements[i + 1];
+    if (cur.type === 'quote' && nxt && isAvatarImage(nxt) && sameCell(cur, nxt)) {
+      merged.push(Object.assign({}, cur, { __avatar: nxt }));
+      i++;
+    } else if (isAvatarImage(cur) && nxt?.type === 'quote' && sameCell(cur, nxt)) {
+      merged.push(Object.assign({}, nxt, { __avatar: cur }));
+      i++;
+    } else {
+      merged.push(cur);
+    }
+  }
+  section = { ...section, elements: merged };
   const cols = section.layout.columns;
   const bg = effectiveBackground(section, index);
   // Hero with a background image + overlaid text (the sketch drew text ON the
@@ -595,7 +624,8 @@ h3.pp-heading { font-size: 1.28rem; }
 .pp-quote { margin: 0; padding: 1.6rem 1.8rem; border-radius: var(--pp-radius); background: var(--pp-surface); border: 1px solid var(--pp-border); box-shadow: var(--pp-shadow-sm); position: relative; }
 .pp-quote::before { content: '\\201C'; font-family: var(--pp-font-heading); font-size: 3rem; line-height: 1; color: var(--pp-primary); display: block; margin-bottom: 0.25rem; }
 .pp-quote__text { margin: 0; font-size: 1.05rem; line-height: 1.6; font-style: italic; }
-.pp-quote__author { margin-top: 0.9rem; font-size: 0.85rem; font-weight: 700; color: var(--pp-primary); }
+.pp-quote__author { margin-top: 0.9rem; font-size: 0.85rem; font-weight: 700; color: var(--pp-primary); display: flex; align-items: center; gap: 0.6rem; }
+.pp-quote__avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; border: 1px solid var(--pp-border); }
 .pp-stat { display: flex; flex-direction: column; gap: 0.2rem; align-items: inherit; }
 .pp-stat__value { font-family: var(--pp-font-heading); font-weight: 800; font-size: clamp(2rem, 4.5vw, 3rem); letter-spacing: -0.03em; color: var(--pp-primary); line-height: 1.05; }
 .pp-stat__label { font-size: 0.9rem; font-weight: 600; color: color-mix(in srgb, var(--pp-text) 65%, transparent); }

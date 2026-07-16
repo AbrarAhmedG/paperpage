@@ -55,6 +55,26 @@ const ENTRIES: Entry[] = [
     },
   },
   {
+    // Synthetic sketch exercising the expanded vocabulary: stats row,
+    // testimonial quote cards with avatars, contact form.
+    name: 'new-vocab',
+    image: join(here, 'corpus', 'new-vocab.png'),
+    assert: (ir, html) => {
+      const fails: string[] = [];
+      const els = allElements(ir);
+      if (els.filter((e) => e.type === 'stat').length < 2) fails.push('fewer than 2 stat elements');
+      if (els.filter((e) => e.type === 'quote').length < 2) fails.push('fewer than 2 quote elements');
+      const form = els.find((e) => e.type === 'form');
+      if (!form) fails.push('no form element captured');
+      else if ((form.items ?? []).length < 2) fails.push('form has fewer than 2 fields');
+      if (!html.includes('pp-form')) fails.push('form not rendered');
+      if (!html.includes('pp-stat__value')) fails.push('stats not rendered');
+      if (!html.includes('pp-quote')) fails.push('quotes not rendered');
+      if (/>\s*Footer\s*</.test(html)) fails.push('"Footer" rendered as visible copy');
+      return fails;
+    },
+  },
+  {
     // Synthetic E2E fixture: nav / hero with two headline strokes + button /
     // three cards / footer with social circles.
     name: 'fixture-basic',
