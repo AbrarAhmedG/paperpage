@@ -25,6 +25,8 @@ const ICONS: Record<string, string> = {
   layers: '<path d="M12 2l9 5-9 5-9-5 9-5z"/><path d="M3 12l9 5 9-5"/><path d="M3 17l9 5 9-5"/>',
   sparkles: '<path d="M12 3l1.8 4.7L18 9.5l-4.2 1.8L12 16l-1.8-4.7L6 9.5z"/>',
   rocket: '<path d="M5 15c-1 1-1.5 4-1.5 4s3-.5 4-1.5"/><path d="M9 13a11 11 0 0 1 8-9c1.6 0 2 .4 2 2a11 11 0 0 1-9 8z"/><circle cx="14.5" cy="9.5" r="1.1"/>',
+  chevronLeft: '<path d="M15 6l-6 6 6 6"/>',
+  chevronRight: '<path d="M9 6l6 6-6 6"/>',
 };
 function icon(name: string): string {
   return `<svg ${ICON_ATTRS}>${ICONS[name] ?? ICONS.sparkles}</svg>`;
@@ -141,6 +143,18 @@ const LIST_PLACEHOLDER = ['First item', 'Second item', 'Third item'];
 
 type RenderCtx = { primary: string; secondary: string; img: { v: number }; photo: { v: number } };
 
+// Carousel frame — a curated photo slide with prev/next arrows and dots.
+// Decorative chrome only (no JS); GrapesJS owns the page after generation.
+function renderCarousel(alt: string, ctx: RenderCtx): string {
+  const src = CURATED_PHOTOS[ctx.photo.v++ % CURATED_PHOTOS.length];
+  return (
+    `<div class="pp-carousel"><img class="pp-image pp-carousel__img" data-pp-asset="1" src="${src}" alt="${esc(alt) || 'Slide'}" loading="lazy" />` +
+    `<span class="pp-carousel__nav pp-carousel__nav--prev" aria-hidden="true">${icon('chevronLeft')}</span>` +
+    `<span class="pp-carousel__nav pp-carousel__nav--next" aria-hidden="true">${icon('chevronRight')}</span>` +
+    `<span class="pp-carousel__dots" aria-hidden="true"><i class="pp-carousel__dot pp-carousel__dot--active"></i><i class="pp-carousel__dot"></i><i class="pp-carousel__dot"></i></span></div>`
+  );
+}
+
 function renderElement(el: Element, ctx: RenderCtx, role: Section['role']): string {
   switch (el.type) {
     case 'heading': {
@@ -165,6 +179,9 @@ function renderElement(el: Element, ctx: RenderCtx, role: Section['role']): stri
         const ph = placeholderSvg(ctx.primary, ctx.secondary, ctx.img.v++);
         return `<img class="pp-image pp-image--avatar" data-pp-asset="1" src="${ph}" alt="${esc(el.alt)}" />`;
       }
+      // A drawn image slider (labeled slider/carousel) gets carousel chrome —
+      // the sketch's < > arrows — around its photo slide.
+      if (role === 'gallery' && /slider|carousel/.test(altLc)) return renderCarousel(el.alt ?? '', ctx);
       // Hero & gallery picture regions get a curated photograph; everything else
       // gets the palette-mesh placeholder. All stay replaceable (data-pp-asset)
       // and bundle offline on export.
@@ -188,6 +205,13 @@ function renderElement(el: Element, ctx: RenderCtx, role: Section['role']): stri
       return `<hr class="pp-divider" />`;
     case 'tabs': {
       const items = el.items && el.items.length ? el.items : ['Tab 1', 'Tab 2', 'Tab 3'];
+      // A drawn image slider (a media box flanked by < > arrows) sometimes
+      // reaches the IR as tabs whose items are arrow glyphs. Render that as a
+      // carousel frame — photo slide + prev/next chrome + dots — not pill
+      // buttons. Pagination bars keep real labels, so they stay tabs.
+      const isArrow = (t: string) => /^[<>‹›«»←→]+$|^<-+$|^-+>$/.test(t.trim());
+      const labels = items.filter((t) => !isArrow(t));
+      if (items.length - labels.length >= 2 && labels.length <= 1) return renderCarousel(labels[0] ?? '', ctx);
       const tabs = items
         .map((t, i) => `<button class="pp-tab${i === 0 ? ' pp-tab--active' : ''}" type="button">${esc(t)}</button>`)
         .join('');
@@ -264,6 +288,18 @@ function renderSection(section: Section, ctx: RenderCtx, index: number): string 
     <div class="pp-container" style="--pp-cols:1">
       <div class="pp-cell">
         ${content}
+      </div>
+    </div>
+  </section>`;
+    }
+    // A lone hero image (nothing else drawn in the band) is a wide banner
+    // strip, as sketched — not a tall 4:3 photo.
+    if (imgEl && section.elements.length === 1) {
+      const src = CURATED_PHOTOS[ctx.photo.v++ % CURATED_PHOTOS.length];
+      return `  <section data-region="hero" class="pp-section pp-hero pp-bg-${bg}" data-align="${section.layout.align}" style="--pp-cols:1">
+    <div class="pp-container">
+      <div class="pp-cell">
+        <img class="pp-image pp-image--banner" data-pp-asset="1" src="${src}" alt="${esc(imgEl.alt)}" loading="lazy" />
       </div>
     </div>
   </section>`;
@@ -412,6 +448,17 @@ h3.pp-heading { font-size: 1.28rem; }
 .pp-image { width: 100%; height: auto; aspect-ratio: 4 / 3; border-radius: var(--pp-radius); display: block; object-fit: cover; box-shadow: var(--pp-shadow); border: 1px solid var(--pp-border); transition: transform 0.35s ease; background: linear-gradient(135deg, color-mix(in srgb, var(--pp-primary) 70%, #0b1020), color-mix(in srgb, var(--pp-secondary) 45%, #0b1020)); }
 .pp-features .pp-cell:hover .pp-image, .pp-gallery .pp-cell:hover .pp-image { transform: scale(1.025); }
 .pp-image--avatar { width: 72px; height: 72px; min-height: 0; aspect-ratio: 1 / 1; border-radius: 50%; }
+.pp-image--banner { aspect-ratio: 5 / 2; min-height: 240px; }
+/* Carousel frame (a slider drawn with < > arrows) — decorative chrome, no JS */
+.pp-carousel { position: relative; width: 100%; }
+.pp-carousel__img { aspect-ratio: 21 / 9; }
+.pp-carousel__nav { position: absolute; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, 0.92); color: var(--pp-text); box-shadow: var(--pp-shadow-sm); cursor: pointer; }
+.pp-carousel__nav--prev { left: 14px; }
+.pp-carousel__nav--next { right: 14px; }
+.pp-carousel__nav svg { width: 20px; height: 20px; }
+.pp-carousel__dots { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); display: flex; gap: 7px; }
+.pp-carousel__dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255, 255, 255, 0.55); }
+.pp-carousel__dot--active { background: #fff; }
 /* Thumbnail wall (a run of many images -> compact tile grid) */
 .pp-thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 0.6rem; width: 100%; }
 .pp-thumb { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 10px; border: 1px solid var(--pp-border); display: block; }

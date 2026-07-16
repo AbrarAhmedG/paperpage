@@ -445,6 +445,69 @@ describe('renderPage', () => {
     expect(css).toContain('.pp-image--avatar');
   });
 
+  it('renders arrow-tabs (a drawn slider) as a carousel frame, not pill buttons', () => {
+    const s: PageIR = {
+      ...ir,
+      sections: [
+        { id: 's', role: 'gallery', background: 'default', layout: { columns: 1, align: 'center' }, elements: [
+          { type: 'tabs', items: ['<', 'Slider', '>'] },
+        ] },
+      ],
+    };
+    const { html, css } = renderPage(s);
+    expect(html).toContain('class="pp-carousel"');
+    expect(html).toContain('pp-carousel__nav--prev');
+    expect(html).toContain('pp-carousel__nav--next');
+    expect(html).toContain('pp-carousel__dots');
+    expect(html).toContain('alt="Slider"'); // the drawn label survives as alt
+    expect(html).toContain('images.unsplash.com'); // slide is a curated photo
+    expect(html).not.toContain('</button>'); // no arrow pill-tabs
+    expect(css).toContain('.pp-carousel__nav');
+  });
+
+  it('renders a gallery image labeled slider/carousel with carousel chrome', () => {
+    const s: PageIR = {
+      ...ir,
+      sections: [
+        { id: 's', role: 'gallery', background: 'default', layout: { columns: 1, align: 'center' }, elements: [
+          { type: 'image', alt: 'slider' },
+        ] },
+      ],
+    };
+    const { html } = renderPage(s);
+    expect(html).toContain('class="pp-carousel"');
+    expect(html).toContain('pp-carousel__nav--prev');
+    expect(html).toContain('images.unsplash.com');
+  });
+
+  it('keeps real pagination tabs as tabs even when arrows are drawn beside them', () => {
+    const s: PageIR = {
+      ...ir,
+      sections: [
+        { id: 's', role: 'text', background: 'default', layout: { columns: 1, align: 'center' }, elements: [
+          { type: 'tabs', items: ['<', '1', '2', '3', '>'] },
+        ] },
+      ],
+    };
+    const { html } = renderPage(s);
+    expect(html).toContain('class="pp-tabs"');
+    expect(html).not.toContain('pp-carousel');
+  });
+
+  it('renders a lone hero image as a wide banner strip, as drawn', () => {
+    const h: PageIR = {
+      ...ir,
+      sections: [
+        { id: 'h', role: 'hero', background: 'gradient', layout: { columns: 1, align: 'center' }, elements: [{ type: 'image', alt: 'Image' }] },
+      ],
+    };
+    const { html, css } = renderPage(h);
+    expect(html).toContain('pp-image--banner');
+    expect(html).toContain('images.unsplash.com'); // still a curated, exportable photo
+    expect(html).toContain('data-pp-asset="1"'); // still replaceable in the editor
+    expect(css).toContain('.pp-image--banner');
+  });
+
   it('wraps CTA content in an inset gradient panel', () => {
     const c: PageIR = {
       ...ir,
