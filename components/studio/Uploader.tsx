@@ -7,7 +7,7 @@ export default function Uploader({
   onGenerated,
 }: {
   projectId: string;
-  onGenerated: (data: { html: string; css: string }) => void;
+  onGenerated: (data: { html: string; css: string; name?: string }) => void;
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -37,7 +37,7 @@ export default function Uploader({
         setError(data.error ?? 'Generation failed');
         return;
       }
-      onGenerated({ html: data.html, css: data.css });
+      onGenerated({ html: data.html, css: data.css, name: data.name });
     } catch (e) {
       setStatus('error');
       setError(e instanceof Error ? e.message : 'Network error');

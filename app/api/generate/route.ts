@@ -4,6 +4,7 @@ import { serverError } from '@/lib/apiError';
 import { downscaleImage, callGeminiVision } from '@/lib/gemini';
 import { validateIR, type PageIR } from '@/utils/ir/schema';
 import { renderPage } from '@/utils/renderer';
+import { deriveProjectName, DEFAULT_PROJECT_NAME } from '@/utils/projects/name';
 
 export const maxDuration = 60;
 
@@ -82,5 +83,20 @@ export async function POST(req: Request) {
   if (saveErr) return serverError('generate: persist', saveErr);
   if (!saved) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
 
-  return NextResponse.json({ ir, html, css });
+  // Give never-renamed projects a meaningful name from the page's own heading
+  // (the .eq('name', …) guard means a user-chosen name is never overwritten).
+  let appliedName: string | null = null;
+  const derived = deriveProjectName(ir);
+  if (derived && derived !== DEFAULT_PROJECT_NAME) {
+    const { data: renamed } = await supabase
+      .from('projects')
+      .update({ name: derived })
+      .eq('id', projectId)
+      .eq('name', DEFAULT_PROJECT_NAME)
+      .select('name')
+      .maybeSingle();
+    appliedName = renamed?.name ?? null;
+  }
+
+  return NextResponse.json({ ir, html, css, ...(appliedName ? { name: appliedName } : {}) });
 }

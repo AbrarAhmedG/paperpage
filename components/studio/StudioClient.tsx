@@ -72,9 +72,10 @@ export default function StudioClient({ project }: { project: Project }) {
       ) : (
         <Uploader
           projectId={project.id}
-          onGenerated={({ html, css }) => {
+          onGenerated={({ html, css, name }) => {
             setHtml(html);
             setCss(css);
+            if (name) setName(name);
           }}
         />
       )}
