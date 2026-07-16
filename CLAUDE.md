@@ -124,6 +124,11 @@ paperpage/
 │   ├── debounce.ts                      # autosave debounce (+ .test.ts)
 │   └── export/bundle.ts                 # url extract/rewrite + zip (+ .test.ts)
 ├── proxy.ts                             # route guard (Next 16 middleware→proxy)
+├── e2e/
+│   ├── full-flow.spec.ts                # Playwright E2E: auth→upload→generate→edit→export standalone
+│   ├── make-sketch.mjs                  # regenerates fixtures/sketch.png (synthetic hand-drawn sketch)
+│   └── fixtures/sketch.png
+├── playwright.config.ts                 # E2E config (prod server on :3000, 1 worker, no retries)
 ├── supabase/migrations/000{1..4}_*.sql  # profiles, projects, sketches bucket, assets
 ├── vitest.config.ts                     # unit tests (@/ alias via vite-tsconfig-paths)
 ├── tailwind.config.ts                   # Aurora tokens
@@ -155,6 +160,7 @@ No service-role key: server routes use the **user-scoped** Supabase server clien
 - `npm run lint` — Next.js lint
 - `npm test` — Vitest (unit tests: name, IR schema, renderer, debounce, bundle)
 - `npm run test:watch` — Vitest watch mode
+- `npm run test:e2e` — Playwright full-flow E2E against the production build (`npm run build` first; starts `npm start` itself). Drives auth → new project → upload `e2e/fixtures/sketch.png` → generate (one real vision API call) → GrapesJS edit + autosave → export `.zip` → asserts the export is standalone. Uses a fixed throwaway account (`pp-e2e@example.com`, override via `E2E_EMAIL`/`E2E_PASSWORD`); requires Supabase email confirmation disabled. Test projects are deleted on completion.
 
 ---
 
@@ -181,6 +187,7 @@ No service-role key: server routes use the **user-scoped** Supabase server clien
 - Assets: `assets` bucket + `project_assets`, `/api/assets`, GrapesJS asset manager wired to Supabase Storage (signed URLs).
 - Export: client-side `.zip` of portable HTML/CSS with images bundled to relative paths.
 - Aurora Glassmorphism theme tokens.
+- Full-flow Playwright E2E (`npm run test:e2e`) covering SC3/SC5 plumbing end to end.
 
 **Phase 2 (explicitly NOT in v1)**
 - **Figma export** — the stored Layout IR is designed to make this tractable later.
