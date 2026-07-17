@@ -38,7 +38,7 @@ The highest-value, highest-risk piece. **One-way render:** the IR generates the 
 
 1. **Upload** — client sends a sketch photo to `POST /api/generate` (multipart).
 2. **Store** — `sharp` downscales it (≤1600px, JPEG); saved to Storage at `sketches/{user_id}/{projectId}/original.jpg`.
-3. **Interpret** — `lib/gemini.ts` calls Gemini Vision with a strict JSON `responseSchema` (mirrors the Zod schema, low temperature) → raw Layout IR.
+3. **Interpret** — `lib/gemini.ts` calls Gemini Vision with a strict JSON `responseSchema` (mirrors the Zod schema, low temperature) → raw Layout IR. The route injects a **random curated palette preset** (`utils/ir/palettes.ts`, 12 presets; `lib/prompt.ts` `buildLayoutPrompt`) as the default palette so repeated generations vary in color — colors drawn/written on the sketch still win.
 4. **Validate** — `utils/ir/schema.ts` `validateIR()` (Zod). Invalid → one automatic retry → `422`.
 5. **Render** — `utils/renderer.ts` `renderPage(ir)` → `{ html, css }`. Deterministic, **safe by construction** (all text HTML-escaped, no `<script>`, no untrusted URLs — no sanitizer needed). Modern-SaaS visual system: curated inline icon set, palette-derived **mesh placeholders**, a **hardcoded curated photo allowlist** (Unsplash) for hero/gallery slots, eyebrow labels, gradient CTA panel, and a responsive grid that collapses 3→2→1. All image URLs are authored in the renderer (never model-supplied), so the no-untrusted-URLs guarantee holds.
 6. **Persist** — `{ sketch_path, ir, html, css }` saved to the `projects` row; returns `{ ir, html, css }`.
@@ -113,7 +113,7 @@ paperpage/
 │   ├── auth/AuthForm.tsx                # email/password form
 │   ├── landing/SketchToSiteVisual.tsx   # hero before/after (sketch → rendered page), pure SVG/CSS
 │   ├── dashboard/{ProjectCard,DashboardClient}.tsx
-│   └── studio/{Uploader,Editor,StudioClient,ExportButton}.tsx
+│   └── studio/{Uploader,Editor,StudioClient,ExportButton}.tsx + samples.ts (sample-sketch manifest + .test.ts)
 ├── lib/
 │   ├── supabase/{client,server,middleware}.ts
 │   └── gemini.ts                        # server-only Gemini Vision wrapper
@@ -122,6 +122,7 @@ paperpage/
 │   ├── dates.ts                         # formatRelativeDate for dashboard cards (+ .test.ts)
 │   ├── studio/progress.ts               # staged generation-wait labels (+ .test.ts)
 │   ├── ir/schema.ts                     # Zod Layout IR (+ .test.ts)
+│   ├── ir/palettes.ts                   # 12 curated palette presets + pickPalettePreset (+ .test.ts)
 │   ├── editor/css.ts                    # protected base CSS split for GrapesJS (+ .test.ts)
 │   ├── renderer.ts                      # IR → {html, css} (+ .test.ts)
 │   ├── debounce.ts                      # autosave debounce (+ .test.ts)
@@ -133,7 +134,8 @@ paperpage/
 │   ├── corpus/                          # known-tricky user sketches + assertions in run-corpus.mts
 │   ├── make-sketch.mjs                  # regenerates fixtures/sketch.png (synthetic hand-drawn sketch)
 │   └── fixtures/sketch.png
-├── public/sample-sketch.png             # "Try a sample sketch" asset in the uploader
+├── public/samples/sample-*.png          # 12-sketch "Try a sample sketch" pool (random per visit)
+├── scripts/make-samples.mjs             # regenerates public/samples/ (seeded, deterministic)
 ├── playwright.config.ts                 # E2E config (prod server on :3000, 1 worker, no retries)
 ├── supabase/migrations/000{1..5}_*.sql  # profiles, projects, sketches bucket, assets, profile full_name
 ├── vitest.config.ts                     # unit tests (@/ alias via vite-tsconfig-paths)
@@ -190,8 +192,9 @@ No service-role key: server routes use the **user-scoped** Supabase server clien
 - Email/password auth (`/login`, `/signup` with name capture → `user_metadata.full_name` + `profiles.full_name`), signup-trigger `profiles`, middleware route guards. Dashboard header shows an initials avatar + name (email fallback for pre-name accounts; `utils/user.ts`).
 - Project CRUD (`/api/projects*`) + dashboard: brand header, project cards with live mini-previews (sandboxed `iframe srcdoc` of the generated page), sketch thumbnails (signed URLs) for not-yet-generated uploads, Generated/No-page-yet badges, inline rename, hover-delete with inline confirm (optimistic + revert on failure), relative timestamps, empty-state CTA. `POST /api/generate` auto-names never-renamed projects from the page's hero heading.
 - Generation pipeline: IR Zod schema, deterministic renderer, server-only Gemini Vision wrapper, `POST /api/generate` (sketch → Storage → IR → render → persist, with validation + one retry).
-- Studio: sketch uploader (aurora/glass upload state, example-sketch dropzone with drag-over feedback, "Try a sample sketch" one-click demo, staged generation progress, banner errors), GrapesJS editor with curated style/block/layer/device managers and curated Google Fonts, debounced autosave, editable project name.
+- Studio: sketch uploader (aurora/glass upload state, example-sketch dropzone with drag-over feedback, "Try a sample sketch" one-click demo drawing from a 12-sketch pool — a random sample previews in the dropzone each visit, `components/studio/samples.ts` + `public/samples/`, regenerated by `scripts/make-samples.mjs` — staged generation progress, banner errors), GrapesJS editor with curated style/block/layer/device managers and curated Google Fonts, debounced autosave, editable project name.
 - Rich sketch vocabulary: contact forms, testimonial quotes, stat rows, tables (schema + prompt + renderer), plus partner-logo strips and structural-label suppression; sketch regression corpus (`npm run test:corpus`) locks fidelity fixes against prompt drift.
+- Palette variety: 12 curated presets (`utils/ir/palettes.ts`); `/api/generate` injects a random one per generation as the prompt's default palette (`buildLayoutPrompt`), so regenerating yields fresh professional color schemes while sketch-specified colors still win.
 - Assets: `assets` bucket + `project_assets`, `/api/assets`, GrapesJS asset manager wired to Supabase Storage (signed URLs).
 - Export: client-side `.zip` of portable HTML/CSS with images bundled to relative paths.
 - Aurora Glassmorphism theme tokens.
