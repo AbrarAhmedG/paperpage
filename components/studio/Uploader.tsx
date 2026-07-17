@@ -116,14 +116,20 @@ export default function Uploader({
             <img src={preview} alt="Sketch preview" className="max-h-64 mx-auto rounded-xl shadow" />
           ) : (
             <div className="flex flex-col items-center gap-4 text-slate-500">
-              {/* what a usable sketch looks like — the exact sample the demo button uses */}
-              <div className="h-40 flex items-center justify-center">
+              {/* what a usable sketch looks like — the exact sample the demo button uses,
+                  framed like a photo pinned at a slight angle */}
+              <div className="h-64 flex items-center justify-center">
                 {sample && (
-                  <img
-                    src={`/samples/${sample.file}`}
-                    alt={`Example sketch: ${sample.label}`}
-                    className="max-h-40 w-auto rounded-lg border border-slate-200/80 shadow-sm bg-white"
-                  />
+                  <div className="-rotate-2 transition-transform duration-300 hover:rotate-0 bg-white p-2 pb-3 rounded-md border border-slate-200/70 shadow-md">
+                    <img
+                      src={`/samples/${sample.file}`}
+                      alt={`Example sketch: ${sample.label}`}
+                      className="max-h-48 w-auto rounded-sm"
+                    />
+                    <p className="mt-1.5 text-center text-[11px] font-medium text-slate-400">
+                      {sample.label}
+                    </p>
+                  </div>
                 )}
               </div>
               <div className="flex items-center gap-2 font-medium text-slate-600">
