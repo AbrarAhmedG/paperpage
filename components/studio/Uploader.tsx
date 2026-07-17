@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { generationStage } from '@/utils/studio/progress';
+import { SAMPLE_SKETCHES, type SampleSketch } from '@/components/studio/samples';
 
 export default function Uploader({
   projectId,
@@ -16,9 +17,17 @@ export default function Uploader({
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [stage, setStage] = useState<string>('');
+  // A different sample sketch each visit. Chosen after mount (not during
+  // render) so the server and client markup agree — Math.random in render
+  // would be a hydration mismatch.
+  const [sample, setSample] = useState<SampleSketch | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const loading = status === 'loading';
+
+  useEffect(() => {
+    setSample(SAMPLE_SKETCHES[Math.floor(Math.random() * SAMPLE_SKETCHES.length)]);
+  }, []);
 
   // Advance the perceived-progress stage while a generation is in flight.
   useEffect(() => {
@@ -37,11 +46,11 @@ export default function Uploader({
   }
 
   async function useSample() {
-    if (loading) return;
+    if (loading || !sample) return;
     try {
-      const res = await fetch('/sample-sketch.png');
+      const res = await fetch(`/samples/${sample.file}`);
       const blob = await res.blob();
-      choose(new File([blob], 'sample-sketch.png', { type: 'image/png' }));
+      choose(new File([blob], sample.file, { type: 'image/png' }));
     } catch {
       setError('Could not load the sample sketch. Try uploading your own.');
     }
@@ -107,26 +116,16 @@ export default function Uploader({
             <img src={preview} alt="Sketch preview" className="max-h-64 mx-auto rounded-xl shadow" />
           ) : (
             <div className="flex flex-col items-center gap-4 text-slate-500">
-              {/* what a usable sketch looks like */}
-              <svg
-                viewBox="0 0 200 140"
-                className="w-40 h-auto text-slate-400"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M10 10 q 14 -2 28 1 q 1 6 -1 12 q -14 2 -27 -1 q -1 -6 0 -12 Z" />
-                <path d="M150 16 q 12 -2 26 1" />
-                <path d="M10 34 q 88 -3 180 2 q 2 24 -1 48 q -90 3 -178 -2 q -3 -24 -1 -48 Z" />
-                <path d="M56 54 q 40 -3 86 2" strokeWidth="4" />
-                <path d="M76 70 q 22 -2 46 1" opacity="0.6" />
-                <path d="M10 96 q 24 -2 50 1 q 2 16 -1 32 q -25 2 -48 -1 q -2 -16 -1 -32 Z" />
-                <path d="M74 97 q 25 -3 50 1 q 2 17 -1 32 q -25 2 -48 -1 q -2 -16 -1 -32 Z" />
-                <path d="M138 96 q 25 -2 50 1 q 2 16 -1 32 q -25 3 -48 -1 q -2 -16 -1 -32 Z" />
-              </svg>
+              {/* what a usable sketch looks like — the exact sample the demo button uses */}
+              <div className="h-40 flex items-center justify-center">
+                {sample && (
+                  <img
+                    src={`/samples/${sample.file}`}
+                    alt={`Example sketch: ${sample.label}`}
+                    className="max-h-40 w-auto rounded-lg border border-slate-200/80 shadow-sm bg-white"
+                  />
+                )}
+              </div>
               <div className="flex items-center gap-2 font-medium text-slate-600">
                 <svg viewBox="0 0 24 24" className="h-5 w-5 text-mint-500" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -151,7 +150,7 @@ export default function Uploader({
           <p className="mt-3 text-center text-sm text-slate-500">
             No sketch handy?{' '}
             <button onClick={useSample} className="font-semibold text-mint-500 hover:underline">
-              Try a sample sketch
+              {sample ? `Try this ${sample.label} sketch` : 'Try a sample sketch'}
             </button>
           </p>
         )}
