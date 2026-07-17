@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server';
 import { serverError } from '@/lib/apiError';
 import { isTransientAIError } from '@/lib/aiErrors';
 import { downscaleImage, callGeminiVision } from '@/lib/gemini';
+import { buildLayoutPrompt } from '@/lib/prompt';
+import { pickPalettePreset } from '@/utils/ir/palettes';
 import { validateIR, type PageIR } from '@/utils/ir/schema';
 import { irLooksSane } from '@/utils/ir/sanity';
 import { renderPage } from '@/utils/renderer';
@@ -52,6 +54,9 @@ export async function POST(req: Request) {
   // get a THIRD attempt with backoff — an immediate retry lands in the same
   // overload window — bounded by a time budget so the function never exceeds
   // its 60s limit. A thin final attempt is still used rather than failing.
+  // One random palette preset per generation (stable across this request's
+  // retries) so repeated generations don't all come out the same indigo.
+  const prompt = buildLayoutPrompt(pickPalettePreset());
   const started = Date.now();
   let ir: PageIR | null = null;
   let thin: PageIR | null = null;
@@ -59,7 +64,7 @@ export async function POST(req: Request) {
   let transient = false;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      const raw = await callGeminiVision(downscaled);
+      const raw = await callGeminiVision(downscaled, prompt);
       const result = validateIR(raw);
       transient = false;
       if (result.ok) {

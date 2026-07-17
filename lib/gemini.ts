@@ -32,7 +32,7 @@ const USER_INSTRUCTION = 'Interpret this hand-drawn website sketch and return th
  * API key (console.anthropic.com; pay-as-you-go — NOT a claude.ai subscription).
  * Enabled with AI_PROVIDER=anthropic. Default model: claude-opus-4-8.
  */
-async function callViaAnthropic(image: { data: string; mimeType: string }): Promise<unknown> {
+async function callViaAnthropic(image: { data: string; mimeType: string }, system: string): Promise<unknown> {
   const { default: Anthropic } = await import('@anthropic-ai/sdk');
   const apiKey = process.env.ANTHROPIC_API_KEY || process.env.AI_API_KEY || '';
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not set (required when AI_PROVIDER=anthropic)');
@@ -42,7 +42,7 @@ async function callViaAnthropic(image: { data: string; mimeType: string }): Prom
   const res = await client.messages.create({
     model,
     max_tokens: 8192,
-    system: LAYOUT_PROMPT,
+    system,
     messages: [
       {
         role: 'user',
@@ -72,7 +72,7 @@ async function callViaAnthropic(image: { data: string; mimeType: string }): Prom
  * OpenAI-compatible path (default) — Groq (free), OpenRouter, local Ollama, etc.
  * Configure with AI_BASE_URL / AI_API_KEY / AI_MODEL.
  */
-async function callViaOpenAICompatible(image: { data: string; mimeType: string }): Promise<unknown> {
+async function callViaOpenAICompatible(image: { data: string; mimeType: string }, system: string): Promise<unknown> {
   const baseUrl = (process.env.AI_BASE_URL || 'https://api.groq.com/openai/v1').replace(/\/+$/, '');
   const apiKey = process.env.AI_API_KEY || process.env.GROQ_API_KEY || '';
   const model = process.env.AI_MODEL || 'meta-llama/llama-4-scout-17b-16e-instruct';
@@ -91,7 +91,7 @@ async function callViaOpenAICompatible(image: { data: string; mimeType: string }
       // in JSON.parse and silently degrades the result via the route's retry.
       response_format: { type: 'json_object' },
       messages: [
-        { role: 'system', content: LAYOUT_PROMPT },
+        { role: 'system', content: system },
         {
           role: 'user',
           content: [
@@ -120,8 +120,11 @@ async function callViaOpenAICompatible(image: { data: string; mimeType: string }
  *   - "anthropic" -> Claude via the official SDK (paid, best fidelity)
  *   - anything else (default) -> OpenAI-compatible endpoint (Groq free, etc.)
  */
-export async function callGeminiVision(image: { data: string; mimeType: string }): Promise<unknown> {
+export async function callGeminiVision(
+  image: { data: string; mimeType: string },
+  system: string = LAYOUT_PROMPT,
+): Promise<unknown> {
   const provider = (process.env.AI_PROVIDER || '').toLowerCase();
-  if (provider === 'anthropic' || provider === 'claude') return callViaAnthropic(image);
-  return callViaOpenAICompatible(image);
+  if (provider === 'anthropic' || provider === 'claude') return callViaAnthropic(image, system);
+  return callViaOpenAICompatible(image, system);
 }

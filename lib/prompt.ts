@@ -1,10 +1,15 @@
 import { SECTION_ROLES, ELEMENT_TYPES, CURATED_FONTS } from '@/utils/ir/schema';
+import type { PalettePreset } from '@/utils/ir/palettes';
 
 // The sketch-interpretation prompt. Kept in its own module (no `server-only`) so
 // it can be unit-tested and reused by diagnostics without pulling in the vision
 // SDK. The IR shape is described inline so any vision model can produce it; the
 // output is still Zod-validated (utils/ir/schema.ts) after generation.
-export const LAYOUT_PROMPT = `You are a web layout interpreter. You are given a photo of a hand-drawn website page sketch.
+//
+// The palette rule is swappable: LAYOUT_PROMPT lets the model choose colors
+// freely (deterministic for diag/corpus), while buildLayoutPrompt(preset)
+// injects a server-picked default palette — sketch-specified colors still win.
+const makePrompt = (paletteRule: string) => `You are a web layout interpreter. You are given a photo of a hand-drawn website page sketch.
 Return ONLY a single JSON object (no markdown, no commentary) with EXACTLY this shape:
 
 {
@@ -44,10 +49,25 @@ Rules:
 - A ruled grid of rows and columns (comparison chart, data table) -> "table": each row as one "items" string with cells separated by "|", first row = the header. Pricing PLAN CARDS (price + feature list + button per column) are NOT a table — keep them as columns of heading/stat/list/button in a section with role "pricing".
 - Labels that merely NAME a region or widget ("header", "footer", "image", "banner", "logo", "slider") are placeholders, NOT visible copy. Put image labels in "alt"; never emit them as heading or paragraph text — write plausible content instead (e.g. a short copyright line for a footer).
 - A grid of labeled boxes (e.g. "blog 1", "blog 2", "blog 3") is a CARD GRID: for each box emit an "image" (label in "alt") AND a level-3 "heading" titled from the label (or a sensible invented title), both in the same "col", so every card gets a visible title.
-- All palette colors MUST be 6-digit hex. Choose a MODERN, VIBRANT, COLORFUL palette (a confident primary and a complementary secondary accent, high-contrast, light background; do NOT use greys or pure black #000000 as primary). Set each section's "background" for visual rhythm — prefer a "gradient" hero, alternating "surface" on some sections, and a "dark" footer; use "default" for the rest.
+${paletteRule} Set each section's "background" for visual rhythm — prefer a "gradient" hero, alternating "surface" on some sections, and a "dark" footer; use "default" for the rest.
 - The main title is a heading with "level": 1.
 - ALWAYS give buttons, tabs, and nav/menu links a short sensible label. If the sketch's text is unclear or absent, INVENT an appropriate one for the context (e.g. "Home", "About", "Next", "Subscribe", "Read more", or "1"/"2"/"3" for pagination).
 - Headings and body paragraphs are the ONLY types where you may leave "text" empty when the writing is unclear (the renderer fills neutral placeholder copy).
 - Use "normal" spacing unless the sketch is clearly dense (compact) or airy (roomy).
 - If the image is clearly NOT a hand-drawn web-page layout, return a single "hero" section with one heading and one paragraph as a starter — do not invent a full site.
 - Output the JSON object only.`;
+
+const FREE_PALETTE_RULE =
+  '- All palette colors MUST be 6-digit hex. Choose a MODERN, VIBRANT, COLORFUL palette (a confident primary and a complementary secondary accent, high-contrast, light background; do NOT use greys or pure black #000000 as primary).';
+
+export const LAYOUT_PROMPT = makePrompt(FREE_PALETTE_RULE);
+
+// Prompt variant with a server-picked default palette. The preset breaks the
+// model's tendency to emit the same indigo scheme for every (colorless) pencil
+// sketch, while colors genuinely present on the sketch still take precedence.
+export function buildLayoutPrompt(preset: PalettePreset): string {
+  const p = preset.palette;
+  return makePrompt(
+    `- All palette colors MUST be 6-digit hex. Use EXACTLY this palette: "primary": "${p.primary}", "secondary": "${p.secondary}", "background": "${p.background}", "surface": "${p.surface}", "text": "${p.text}" — UNLESS the sketch itself specifies colors (colored ink or markers, written color names like "blue header", or a recognizable brand's colors); in that case honor the sketch's colors instead.`,
+  );
+}

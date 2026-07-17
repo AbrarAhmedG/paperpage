@@ -2,11 +2,6 @@ import { z } from 'zod';
 
 export const CURATED_FONTS = ['Inter', 'Poppins', 'Roboto', 'Lora', 'Montserrat', 'Merriweather'] as const;
 
-export const CURATED_PALETTES = {
-  indigo: { primary: '#6366f1', secondary: '#f59e0b', background: '#ffffff', surface: '#f5f6ff', text: '#0f172a' },
-  teal: { primary: '#0d9488', secondary: '#f43f5e', background: '#ffffff', surface: '#f0fdfa', text: '#0f172a' },
-} as const;
-
 export const SECTION_ROLES = [
   'nav', 'hero', 'features', 'gallery', 'cta', 'text', 'footer', 'testimonials', 'pricing', 'stats', 'contact',
 ] as const;
